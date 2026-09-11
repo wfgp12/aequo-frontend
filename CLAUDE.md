@@ -55,7 +55,7 @@ Cobertura mínima objetivo: 60% en componentes del frontend (ver Plan de Gestió
 
 - Código legible y modular (componentes, servicios, módulos bien separados) por sobre soluciones ingeniosas pero difíciles de mantener.
 - Antes de implementar una función nueva no listada en los RF, verificar si está en las exclusiones del alcance (Especificación de Requisitos). Si lo está, señalarlo y preguntar antes de implementarla.
-- **GitFlow**: ramas `feature/`, `fix/`, `release/` desde `develop`, nunca directo sobre `main`.
+- **GitFlow**: ramas `feature/`, `fix/`, `release/` desde `develop`, nunca directo sobre `main`. Ver [CONTRIBUTING.md](./CONTRIBUTING.md) para el flujo completo (incluida `qa`) y convención de nombres.
 - **Conventional Commits en español**: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`. Ejemplo: `feat: agregar botones de registrar ingreso y egreso`.
 - Si una alternativa técnica sería claramente mejor que el stack ya decidido, proponerla y preguntar — no cambiarla unilateralmente.
 
