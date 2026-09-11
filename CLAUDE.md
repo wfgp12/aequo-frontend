@@ -21,7 +21,7 @@ Contiene **únicamente el frontend**: la interfaz que consume la API REST de `ae
 |---|---|---|
 | Framework | **Angular** | |
 | Hosting | **GitHub Pages** | Build estático. |
-| Autenticación | **OAuth de Google**, iniciado desde este frontend | El backend emite su propio JWT tras la validación; no reenviar el token de Google en cada request. |
+| Autenticación | **Firebase Authentication** (proveedor Google), iniciado desde este frontend | El SDK de Firebase maneja el login; el backend verifica el ID Token una sola vez y emite su propio JWT de sesión (ver ADR-0007). No reenviar el ID Token de Firebase en cada request — usar el JWT propio. |
 | Comunicación con backend | Patrón **Adapter** | Encapsula las llamadas a la API para que cambios en el backend no rompan el resto de la app; consultá el contrato vía Swagger del backend (`/api/docs`), no un documento estático — la API cambia con frecuencia y el Swagger es la única fuente de verdad. |
 
 ## 4. Flujo de registro de movimientos — importante
