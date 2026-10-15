@@ -21,9 +21,12 @@ jobs:
 
       - run: npm ci
 
-      - run: npx ng lint
+      - run: npm run lint
 
-      - run: npx ng test --watch=false --browsers=ChromeHeadless --code-coverage
+      - run: npm run test:coverage
+
+      # Umbral critical: los avisos altos actuales vienen de herramientas de compilacion (braces, node-forge), no del codigo de la app
+      - run: npm audit --omit=dev --audit-level=critical
 
       - uses: SonarSource/sonarqube-scan-action@v4
         env:

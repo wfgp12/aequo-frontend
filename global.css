@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Paleta Aequo: #FFFFFF, #FFD300, #757B81, #262B32, #090C11 (ADR-010).
+   Los tonos de superficie (muted, accent, border) y el muted-foreground oscuro son derivados de la paleta. */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 217.5 30.8% 5.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 217.5 30.8% 5.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 217.5 30.8% 5.1%;
+    --primary: 49.6 100% 50%;
+    --primary-foreground: 217.5 30.8% 5.1%;
+    --secondary: 215 13.6% 17.3%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 210 8.3% 95.3%;
+    --muted-foreground: 210 4.9% 48.2%;
+    --accent: 210 8.3% 95.3%;
+    --accent-foreground: 217.5 30.8% 5.1%;
+    --destructive: 0 84.2% 60.2%;
+    --border: 220 5.7% 89.6%;
+    --input: 220 5.7% 89.6%;
+    --ring: 210 4.9% 48.2%;
+    --radius: 0.625rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 217.5 30.8% 5.1%;
+      --foreground: 0 0% 100%;
+      --card: 215 13.6% 17.3%;
+      --card-foreground: 0 0% 100%;
+      --popover: 215 13.6% 17.3%;
+      --popover-foreground: 0 0% 100%;
+      --primary: 49.6 100% 50%;
+      --primary-foreground: 217.5 30.8% 5.1%;
+      --secondary: 215 13.6% 17.3%;
+      --secondary-foreground: 0 0% 100%;
+      --muted: 215 13.6% 17.3%;
+      --muted-foreground: 210 5.6% 64.7%;
+      --accent: 215 13.6% 17.3%;
+      --accent-foreground: 0 0% 100%;
+      --destructive: 0 70.9% 59.4%;
+      --border: 215 13.6% 17.3%;
+      --input: 215 13.6% 17.3%;
+      --ring: 210 4.9% 48.2%;
+    }
+  }
+}
