@@ -4,7 +4,8 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --go",
+    "start:dev": "expo start --dev-client",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
@@ -27,6 +28,7 @@
     "clsx": "2.1.1",
     "expo": "57.0.30",
     "expo-constants": "57.0.22",
+    "expo-dev-client": "57.0.20",
     "expo-linking": "57.0.13",
     "expo-router": "57.0.28",
     "expo-splash-screen": "57.0.10",
