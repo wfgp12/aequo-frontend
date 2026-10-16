@@ -11,6 +11,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.wfgp12.aequo",
       "adaptiveIcon": {
         "backgroundColor": "#FFD300",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -37,6 +38,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "aca65dbc-9356-46aa-bcd4-6b6b4874c4ca"
+      }
+    },
+    "owner": "wfgp12"
   }
 }
