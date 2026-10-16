@@ -49,11 +49,32 @@ Desde esa terminal se abre la app en cada plataforma.
 
 El inicio de sesión nativo con Google no funciona en Expo Go. Ese flujo se valida en la web y en el build de desarrollo de Android; en el iPhone las pantallas con sesión se revisan con la sesión de prueba de desarrollo (paquete 1.1.4).
 
+## Entorno móvil
+
+Con `npm start` abierto, un cambio en el código se ve a la vez en la web, en Expo Go en el iPhone y en Android, sin pasos manuales. Esto es lo que hay que tener montado.
+
+**Android Studio y el emulador.** Instala Android Studio con la opción Standard, que baja el SDK, `platform-tools` y el emulador. En Device Manager crea un dispositivo y ábrelo una vez. Después define la variable de usuario `ANDROID_HOME` con la ruta del SDK (en Windows es `%LOCALAPPDATA%\Android\Sdk`) y agrega `%ANDROID_HOME%\platform-tools` al PATH, para que Expo encuentre `adb`. Abre las terminales de nuevo para que lean el cambio. Con el emulador encendido, `a` en la terminal de Expo abre la app. En Windows el emulador necesita la Plataforma del Hipervisor de Windows activada y se pone lento con poca RAM.
+
+**Java.** Los builds locales de Android usan el JDK que indique `JAVA_HOME`; el recomendado es el 17. Android Studio trae su propio JDK, así que para el emulador no hace falta nada más.
+
+**Expo Go en el iPhone.** Instala Expo Go desde la App Store y escanea el QR de `npm start`. La versión de Expo Go tiene que soportar el SDK de este proyecto (57).
+
+**Build de desarrollo de Android.** Expo Go no incluye módulos nativos propios, como el inicio de sesión con Google. Para probarlos hay un build de desarrollo, que se genera en la nube con EAS Build (plan gratuito) y no consume recursos del equipo. Desde la raíz del repositorio:
+
+```bash
+npx eas-cli login
+npx eas-cli init
+npx eas-cli build --platform android --profile development
+```
+
+`eas init` agrega el `projectId` y el dueño en `app.json`; ese cambio se commitea. Cuando el build termina, EAS entrega un enlace al APK: se instala en el emulador (arrastrándolo a la ventana) o en un teléfono Android. Luego se levanta el servidor con `npm run start:dev` y el APK se conecta solo. El paquete de Android es `com.wfgp12.aequo`. Los builds de iOS quedan fuera del MVP porque exigen la cuenta de pago de Apple (ADR-011).
+
 ## Scripts
 
 | Comando | Qué hace |
 |---|---|
-| `npm start` | Servidor de desarrollo de Expo |
+| `npm start` | Servidor de desarrollo de Expo, para abrir en Expo Go y en la web |
+| `npm run start:dev` | Servidor de desarrollo para el build de desarrollo de Android (`expo-dev-client`) |
 | `npm run web` / `android` / `ios` | Abre directamente en esa plataforma |
 | `npm run lint` | ESLint |
 | `npm run lint:fix` | ESLint con autofix |
