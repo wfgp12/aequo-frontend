@@ -31,8 +31,10 @@ yarn-error.*
 # TypeScript
 *.tsbuildinfo
 
-# Entorno local
+# Entorno local y credenciales de Firebase
+.env
 .env*.local
+google-services.json
 
 # IDEs y editores
 .idea/

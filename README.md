@@ -31,6 +31,18 @@ Las versiones están fijadas en `package.json`, sin `^` ni `~`. El archivo `.npm
 npm install
 ```
 
+## Firebase
+
+El inicio de sesión usa Firebase Authentication con Google como proveedor (ADR-007). El proyecto de Firebase se comparte con `aequo-backend`; los pasos de la consola están en el README del backend. Aquí solo se necesitan los datos de las apps web y Android:
+
+1. En Firebase Console, *Configuración del proyecto → General → Tus apps*, registra la **app web** y copia su configuración.
+2. Copia `.env.example` a `.env` y completa `EXPO_PUBLIC_FIREBASE_API_KEY`, `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`, `EXPO_PUBLIC_FIREBASE_PROJECT_ID` y `EXPO_PUBLIC_FIREBASE_APP_ID`. Expo incluye en el bundle las variables con prefijo `EXPO_PUBLIC_`, así que son identificadores públicos de la app y no llaves secretas.
+3. Registra la **app Android** con el paquete `com.wfgp12.aequo`, el mismo de `app.json`. La huella SHA-1 de la llave de firma (`npx eas-cli credentials --platform android` la muestra) se agrega al implementar el login nativo en el paquete 1.1.3; ahí también se descarga el `google-services.json` definitivo y se deja en la raíz del repositorio.
+4. En *Authentication → Sign-in method* habilita **Google** y, en *Settings → Authorized domains*, deja autorizado `localhost` y, al publicar, `wfgp12.github.io`.
+5. Reinicia el servidor de Expo para que lea el `.env`.
+
+El `.env` y `google-services.json` están en `.gitignore` y no se versionan. Para los builds de EAS se cargan como variables del proyecto en expo.dev, no en el repositorio.
+
 ## Cómo correr la app
 
 Todo arranca con el mismo comando:
