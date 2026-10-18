@@ -107,6 +107,19 @@ describe('SessionProvider', () => {
     expect(result.current.estado).toBe('sin-sesion');
   });
 
+  it('cierra la sesión aunque falle el almacenamiento al borrar', async () => {
+    storage.get.mockResolvedValue(guardada(Date.now() + 60_000));
+    const { result } = await montar();
+    storage.remove.mockRejectedValue(new Error('almacén no disponible'));
+
+    await act(async () => {
+      await result.current.cerrarSesion();
+    });
+
+    expect(result.current.estado).toBe('sin-sesion');
+    expect(result.current.sesion).toBeNull();
+  });
+
   it('cierra la sesión y limpia lo guardado', async () => {
     storage.get.mockResolvedValue(guardada(Date.now() + 60_000));
     const { result } = await montar();

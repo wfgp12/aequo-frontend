@@ -44,7 +44,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [sesion, setSesion] = useState<Sesion | null>(null);
 
   useEffect(() => {
-    leerSesionGuardada().then((s) => {
+    // leerSesionGuardada nunca rechaza: ante cualquier fallo devuelve null
+    void leerSesionGuardada().then((s) => {
       setSesion(s);
       setEstado(s ? 'activa' : 'sin-sesion');
     });
@@ -62,7 +63,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const cerrarSesion = useCallback(async () => {
-    await sessionStorage.remove();
+    // Cerrar sesión siempre debe completarse, aunque el almacenamiento falle
+    await sessionStorage.remove().catch(() => undefined);
     await auth.signOut().catch(() => undefined);
     setSesion(null);
     setEstado('sin-sesion');

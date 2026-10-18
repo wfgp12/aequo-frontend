@@ -11,7 +11,12 @@ export default function Home() {
     <View className="flex-1 items-center justify-center gap-6 bg-background p-6">
       <Text variant="h1">Aequo</Text>
       <Text variant="muted">Hola, {sesion?.usuario.nombre}</Text>
-      <Button variant="outline" onPress={cerrarSesion}>
+      <Button
+        variant="outline"
+        onPress={() => {
+          void cerrarSesion();
+        }}
+      >
         <Text>Cerrar sesión</Text>
       </Button>
     </View>

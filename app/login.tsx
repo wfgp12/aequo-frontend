@@ -48,7 +48,9 @@ export default function Login() {
           <Button
             variant="outline"
             className="h-[50px] w-full"
-            onPress={continuarConGoogle}
+            onPress={() => {
+              void continuarConGoogle();
+            }}
             disabled={cargando}
             accessibilityLabel="Continuar con Google"
           >
