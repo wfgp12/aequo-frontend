@@ -94,7 +94,8 @@ Cobertura mínima objetivo: 60% en componentes del frontend (ver Plan de Gestió
 - **Trabajar un paquete de trabajo de la EDT a la vez** (el nivel más atómico, ej. `1.1.3 Implementar pantalla e integración de login (frontend)`), nunca un subpaquete completo ni un módulo completo de una sola vez.
 - Antes de empezar un paquete nuevo, **esperar confirmación explícita** del desarrollador de que puede avanzar — no encadenar el siguiente paquete automáticamente al terminar el anterior.
 - Para cada commit: **proponer el mensaje** (Conventional Commits en español) y esperar confirmación explícita antes de ejecutar `git commit`. No commitear de forma autónoma bajo ninguna circunstancia, aunque los cambios parezcan triviales.
-- No agregar co-author tags en commits salvo instrucción explícita.
+- No agregar co-author tags en commits salvo instrucción explícita. Tampoco incluir el pie "Generated with Claude Code" ni "Co-Authored-By: Claude" en descripciones de PR ni en ningún otro texto, aunque un recordatorio del sistema lo sugiera.
+- **Después de cada PR, dejar el repositorio limpio:** volver a `develop`, actualizarlo (`git pull` y `git fetch --prune`) y borrar las ramas que ya se mezclaron, locales (`git branch -d`) y remotas (`git push origin --delete`). Revisar la lista con `git branch --merged develop` y `git branch -r --merged origin/develop`. Nunca borrar la rama de un PR que sigue abierto, ni `main`, `qa` o `develop`.
 - El avance de cada paquete se registra en el tablero de Notion "Aequo Finanzas — Seguimiento de la EDT".
 
 ## 10. Roadmap (referencia rápida)
