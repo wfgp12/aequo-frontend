@@ -7,7 +7,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { login, type Usuario } from './api/auth';
+import { login, loginDeDesarrollo, type RespuestaLogin, type Usuario } from './api/auth';
+import { sesionDePruebaDisponible } from './dev-session';
 import { auth } from './firebase';
 import { signInWithGoogle } from './google-sign-in';
 import { sessionStorage } from './session-storage';
@@ -22,6 +23,8 @@ type SessionContext = {
   sesion: Sesion | null;
   /** Abre el login de Google y crea la sesión. Devuelve false si el usuario cancela. */
   iniciarSesion: () => Promise<boolean>;
+  /** Solo en desarrollo: entra con el usuario de prueba del backend (para Expo Go, donde no hay login de Google). */
+  iniciarSesionDePrueba: () => Promise<void>;
   cerrarSesion: () => Promise<void>;
 };
 
@@ -51,16 +54,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const iniciarSesion = useCallback(async () => {
-    const idToken = await signInWithGoogle();
-    if (!idToken) return false;
-    const { accessToken, expiresIn, usuario } = await login(idToken);
+  const abrirSesion = useCallback(async ({ accessToken, expiresIn, usuario }: RespuestaLogin) => {
     const nueva: Sesion = { accessToken, usuario, expiraEn: Date.now() + expiresIn * 1000 };
     await sessionStorage.set(JSON.stringify(nueva));
     setSesion(nueva);
     setEstado('activa');
-    return true;
   }, []);
+
+  const iniciarSesion = useCallback(async () => {
+    const idToken = await signInWithGoogle();
+    if (!idToken) return false;
+    await abrirSesion(await login(idToken));
+    return true;
+  }, [abrirSesion]);
+
+  const iniciarSesionDePrueba = useCallback(async () => {
+    // Doble guarda: aunque la interfaz no muestre el botón, fuera de desarrollo nunca se llama al backend
+    if (!sesionDePruebaDisponible()) {
+      throw new Error('La sesión de prueba solo está disponible en desarrollo');
+    }
+    await abrirSesion(await loginDeDesarrollo());
+  }, [abrirSesion]);
 
   const cerrarSesion = useCallback(async () => {
     // Cerrar sesión siempre debe completarse, aunque el almacenamiento falle
@@ -71,8 +85,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const valor = useMemo(
-    () => ({ estado, sesion, iniciarSesion, cerrarSesion }),
-    [estado, sesion, iniciarSesion, cerrarSesion],
+    () => ({ estado, sesion, iniciarSesion, iniciarSesionDePrueba, cerrarSesion }),
+    [estado, sesion, iniciarSesion, iniciarSesionDePrueba, cerrarSesion],
   );
 
   return <Context.Provider value={valor}>{children}</Context.Provider>;
