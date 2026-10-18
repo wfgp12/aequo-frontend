@@ -43,6 +43,20 @@ El inicio de sesión usa Firebase Authentication con Google como proveedor (ADR-
 
 El `.env` y `google-services.json` están en `.gitignore` y no se versionan. Para los builds de EAS se cargan como variables del proyecto en expo.dev, no en el repositorio.
 
+### Inicio de sesión con Google
+
+La pantalla `app/login.tsx` usa un código distinto según la plataforma, y en los dos casos obtiene un ID Token de Firebase que se envía al backend (`POST /auth/login`). El backend lo verifica una sola vez y responde con su propio JWT, que es el que guarda la app (ADR-007).
+
+- **Web:** ventana emergente de Google con el SDK de Firebase (`lib/google-sign-in.web.ts`). Solo necesita las variables `EXPO_PUBLIC_FIREBASE_*` y que `localhost` esté entre los dominios autorizados.
+- **Android (build de desarrollo):** inicio de sesión nativo con `@react-native-google-signin/google-signin` (`lib/google-sign-in.ts`). Necesita:
+  1. `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` en el `.env`.
+  2. La huella SHA-1 de la llave de firma agregada a la app Android en Firebase (`npx eas-cli credentials --platform android` la muestra).
+  3. El `google-services.json` descargado después de agregar la huella, en la raíz del repositorio para uso local. Para EAS, súbelo como variable de archivo: `npx eas-cli env:create --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --visibility secret --environment development`.
+  4. Un build de desarrollo nuevo, porque el módulo nativo no estaba en el anterior: `npx eas-cli build --platform android --profile development`.
+- **Expo Go (iPhone):** el módulo nativo no existe ahí. La app abre igual, pero el botón de Google falla; las pantallas con sesión se revisan con la sesión de prueba de desarrollo (paquete 1.1.4).
+
+`EXPO_PUBLIC_API_URL` apunta al backend. Desde el emulador de Android el PC se ve como `10.0.2.2`, y desde el iPhone hace falta la IP local del PC. La sesión se guarda en el almacén seguro del teléfono (`expo-secure-store`) y en `localStorage` en web, y dura 24 horas.
+
 ## Cómo correr la app
 
 Todo arranca con el mismo comando:
