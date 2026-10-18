@@ -8,6 +8,13 @@ jest.mock('@/lib/session', () => ({ useSession: () => ({ iniciarSesion: mockInic
 describe('Login', () => {
   beforeEach(() => mockIniciarSesion.mockReset());
 
+  it('muestra los textos del diseño: lema y aviso de datos', async () => {
+    await render(<Login />);
+    expect(screen.getByText('Aequo')).toBeOnTheScreen();
+    expect(screen.getByText('Tus finanzas claras, sin hojas de cálculo.')).toBeOnTheScreen();
+    expect(screen.getByText('Al continuar aceptas el tratamiento de tus datos.')).toBeOnTheScreen();
+  });
+
   it('ofrece continuar con Google y llama a iniciarSesion', async () => {
     mockIniciarSesion.mockResolvedValue(true);
     await render(<Login />);
