@@ -1,32 +1,41 @@
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { ApiError, NetworkError } from '@/lib/api/client';
+import { sesionDePruebaDisponible } from '@/lib/dev-session';
 import { useSession } from '@/lib/session';
 import { useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
+const SIN_CONEXION = 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
+
 // Lenguaje cotidiano, sin jerga técnica (RNF-04)
 function mensajeDeError(e: unknown) {
-  if (e instanceof NetworkError)
-    return 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
+  if (e instanceof NetworkError) return SIN_CONEXION;
   if (e instanceof ApiError && e.status === 401)
     return 'No pudimos verificar tu cuenta. Inténtalo de nuevo.';
   return 'No pudimos iniciar tu sesión. Inténtalo de nuevo en unos minutos.';
 }
 
+// Texto solo de desarrollo: un 404 significa que el backend no tiene activada la sesión de prueba
+function mensajeDeErrorDePrueba(e: unknown) {
+  if (e instanceof ApiError && e.status === 404)
+    return 'La sesión de prueba no está disponible. En el backend revisa NODE_ENV=development y DEV_SESSION_ENABLED=true.';
+  return mensajeDeError(e);
+}
+
 // Medidas del wireframe "Inicio de sesión" de Figma (360×760): logo de 72 px, botón de 50 px de alto y margen de 28 px.
 export default function Login() {
-  const { iniciarSesion } = useSession();
+  const { iniciarSesion, iniciarSesionDePrueba } = useSession();
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function continuarConGoogle() {
+  async function ejecutar(accion: () => Promise<unknown>, mensaje: (e: unknown) => string) {
     setError(null);
     setCargando(true);
     try {
-      await iniciarSesion();
+      await accion();
     } catch (e) {
-      setError(mensajeDeError(e));
+      setError(mensaje(e));
     } finally {
       setCargando(false);
     }
@@ -49,7 +58,7 @@ export default function Login() {
             variant="outline"
             className="h-[50px] w-full"
             onPress={() => {
-              void continuarConGoogle();
+              void ejecutar(iniciarSesion, mensajeDeError);
             }}
             disabled={cargando}
             accessibilityLabel="Continuar con Google"
@@ -70,6 +79,20 @@ export default function Login() {
             Al continuar aceptas el tratamiento de tus datos.
           </Text>
         </View>
+
+        {/* No está en el wireframe: solo aparece en desarrollo, para revisar pantallas en Expo Go */}
+        {sesionDePruebaDisponible() ? (
+          <Button
+            variant="ghost"
+            className="mt-6"
+            onPress={() => {
+              void ejecutar(iniciarSesionDePrueba, mensajeDeErrorDePrueba);
+            }}
+            disabled={cargando}
+          >
+            <Text>Entrar con sesión de prueba</Text>
+          </Button>
+        ) : null}
 
         {error ? (
           <Text variant="muted" role="alert" className="mt-4 text-center text-destructive">
