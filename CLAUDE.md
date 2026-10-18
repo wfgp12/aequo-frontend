@@ -50,8 +50,39 @@ Cada pantalla se considera terminada cuando se ve bien en web, en el iPhone y en
 - **Edición:** formulario con todos los campos visibles. Eliminar siempre pide confirmación.
 - **Dashboard:** solo indicadores, con selector de mes o rango compartido con Reportes. Muestra por separado el **ingreso propio** y el **dinero recibido** por préstamos o avances (ADR-014).
 - **Movimientos:** carga progresiva (más recientes primero) con filtros Desde/Hasta, independiente del periodo del dashboard.
-- **Más:** bottom sheet con Mis categorías, Meta de ahorro y Cerrar sesión; tocar el nombre abre Perfil (con eliminar cuenta). Dónde van Tarjetas, Deudas y Presupuesto en la navegación se define con los wireframes del paquete 0.7.5; no inventarlo antes.
-- **Paleta:** #FFFFFF, #FFD300, #757B81, #262B32, #090C11; respetar el modo oscuro del sistema. Diseño en Figma, archivo "Aequo — Design System" (las pantallas de tarjetas, deudas y presupuesto se diseñan en el paquete 0.7.5).
+- **Más:** bottom sheet con Mis categorías, Meta de ahorro y Cerrar sesión; tocar el nombre abre Perfil (con eliminar cuenta). Tarjetas, Préstamos y Presupuesto ya están diseñados en el Figma (secciones 06 a 08); consultar el wireframe antes de ubicarlos en la navegación, no inventarlo.
+- **Paleta:** #FFFFFF, #FFD300, #757B81, #262B32, #090C11; respetar el modo oscuro del sistema.
+
+### 5.1 Diseño y mockups en Figma
+
+Los mockups de todas las vistas del frontend están en el archivo **"Aequo — Design System"**, página "Wireframes": [abrir en Figma](https://www.figma.com/design/jYGJ2MI4HyI2cex6VC0Cih/Aequo-%E2%80%94-Design-System?node-id=3-2). El diseño es **mobile first**: las pantallas están pensadas primero para móvil (360×760) y algunas tienen además una versión web de escritorio (1280 px).
+
+| Sección | Pantallas |
+|---|---|
+| 00 · Autenticación | Inicio de sesión (móvil y escritorio) |
+| 01 · Inicio (Dashboard) | Con datos (con deuda), por rango, vacío; escritorio |
+| 02 · Registrar movimiento | Flujo de 5 pasos (valor, categoría, método de pago, fecha, descripción); escritorio |
+| 03 · Movimientos | Lista, lista con cuotas, edición y confirmar eliminación |
+| 04 · Categorías | Mis categorías, editar, confirmar eliminación |
+| 05 · Reportes | Mes (con deudas y presupuesto), origen de ingresos; escritorio |
+| 06 · Tarjetas de crédito | Mis tarjetas, agregar/editar, detalle, registro con tarjeta y cuotas, avance en efectivo, cargos fijos |
+| 07 · Préstamos | Mis préstamos, detalle (con y sin interés), registrar préstamo y pago de deuda |
+| 08 · Presupuesto | Presupuesto, agregar/editar gasto fijo |
+| 09 · Ahorro e ingresos recurrentes | Meta de ahorro, ingresos recurrentes |
+| 10 · Perfil y configuración | Perfil, confirmar eliminación de cuenta |
+| 11 y 12 · Sistema | Iconos y componentes base: son referencia, **no** son pantallas |
+
+Detalles que ya definen los mockups:
+
+- **Barra de navegación inferior:** Inicio, Movim., **+** (registrar), Reportes y Más.
+- **Escritorio:** solo existen versiones de 1280 px para Autenticación, Dashboard, Registro y Reportes; el resto es móvil.
+- **Sheets y diálogos:** el registro y la edición se muestran como sheet de 720 px de alto; las eliminaciones usan un diálogo de confirmación.
+
+Reglas de uso:
+
+- Antes de construir una pantalla, **abrir su frame en Figma** y respetar su estructura, textos y estilos. Si hay que desviarse (por limitaciones técnicas o de plataforma), señalarlo y preguntar antes.
+- Los textos de los mockups son la referencia del lenguaje cotidiano de la interfaz (RNF-04).
+- Si la consulta a Figma por MCP agota el límite del plan gratuito, pedirle al desarrollador la captura del frame en lugar de reintentar.
 
 ## 6. Requisitos no funcionales relevantes para este repositorio
 
