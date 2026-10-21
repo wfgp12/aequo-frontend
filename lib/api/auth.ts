@@ -13,3 +13,8 @@ export type RespuestaLogin = {
 export function login(idToken: string) {
   return request<RespuestaLogin>('/auth/login', { method: 'POST', body: { idToken } });
 }
+
+/** POST /auth/dev-login: sesión de un usuario de prueba. Solo existe en un backend de desarrollo; en cualquier otro responde 404. */
+export function loginDeDesarrollo() {
+  return request<RespuestaLogin>('/auth/dev-login', { method: 'POST' });
+}

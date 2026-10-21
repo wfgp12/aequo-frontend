@@ -57,6 +57,17 @@ La pantalla `app/login.tsx` usa un código distinto según la plataforma, y en l
 
 `EXPO_PUBLIC_API_URL` apunta al backend. Desde el emulador de Android el PC se ve como `10.0.2.2`, y desde el iPhone hace falta la IP local del PC. La sesión se guarda en el almacén seguro del teléfono (`expo-secure-store`) y en `localStorage` en web, y dura 24 horas.
 
+### Sesión de prueba para desarrollo
+
+En Expo Go (iPhone) no existe el login de Google, así que las pantallas con sesión se revisan con un usuario de prueba (ADR-011). En la pantalla de login aparece el botón **Entrar con sesión de prueba**, que llama a `POST /auth/dev-login` y recibe la misma respuesta que `/auth/login`, con un usuario fijo del backend.
+
+Solo funciona cuando se cumplen las dos condiciones:
+
+- **Frontend:** la app corre en desarrollo (`__DEV__`). En un build de producción el botón no se dibuja y `iniciarSesionDePrueba` lanza un error sin llamar al backend. Dos pruebas automatizadas lo verifican (`__tests__/dev-session.test.ts` y `__tests__/session-de-prueba.test.tsx`).
+- **Backend:** corre con `NODE_ENV=development` y `DEV_SESSION_ENABLED=true` en su `.env`. En cualquier otro caso la ruta no existe y responde 404, y la app muestra qué revisar.
+
+Para usarlo desde el iPhone, el teléfono necesita llegar al backend: arranca con la IP local del PC (`$env:EXPO_PUBLIC_API_URL='http://192.168.x.x:3000'; npm start`) y permite el puerto 3000 en el firewall de Windows. Desde el emulador de Android la URL es `http://10.0.2.2:3000`. CORS no aplica a las apps nativas.
+
 ## Cómo correr la app
 
 Todo arranca con el mismo comando:
