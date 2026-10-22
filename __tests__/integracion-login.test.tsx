@@ -1,6 +1,7 @@
 import Layout from '@/app/_layout';
 import Home from '@/app/index';
 import Login from '@/app/login';
+import Perfil from '@/app/perfil';
 import { signInWithGoogle } from '@/lib/google-sign-in';
 import { fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 
@@ -23,7 +24,7 @@ jest.mock('@/lib/session-storage', () => ({
 }));
 
 const usuario = { id: 'u1', nombre: 'Ana Prueba', email: 'ana@correo.com', fotoUrl: null };
-const rutas = { _layout: Layout, index: Home, login: Login };
+const rutas = { _layout: Layout, index: Home, login: Login, perfil: Perfil };
 const fetchMock = jest.fn();
 
 function respuesta(status: number, body: unknown) {
@@ -128,8 +129,10 @@ describe('Flujo de inicio de sesión (integración)', () => {
 
   it('cerrar sesión vuelve al login y borra la sesión guardada', async () => {
     sesionGuardada(Date.now() + 60_000);
+    fetchMock.mockResolvedValue(respuesta(200, usuario));
     await renderRouter(rutas, { initialUrl: '/' });
 
+    await fireEvent.press(await screen.findByText('Mi perfil'));
     await fireEvent.press(await screen.findByText('Cerrar sesión'));
 
     expect(await screen.findByText('Continuar con Google')).toBeOnTheScreen();
