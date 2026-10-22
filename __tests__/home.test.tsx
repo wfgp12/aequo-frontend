@@ -1,12 +1,11 @@
 import Home from '@/app/index';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 
-const mockCerrarSesion = jest.fn();
+jest.mock('expo-router', () => ({
+  Link: ({ children }: { children: React.ReactNode }) => children,
+}));
 jest.mock('@/lib/session', () => ({
-  useSession: () => ({
-    sesion: { usuario: { nombre: 'Ana' } },
-    cerrarSesion: mockCerrarSesion,
-  }),
+  useSession: () => ({ sesion: { usuario: { nombre: 'Ana' } } }),
 }));
 
 describe('Home', () => {
@@ -16,9 +15,8 @@ describe('Home', () => {
     expect(screen.getByText('Hola, Ana')).toBeOnTheScreen();
   });
 
-  it('cierra la sesión desde el botón', async () => {
+  it('ofrece el acceso al perfil', async () => {
     await render(<Home />);
-    await fireEvent.press(screen.getByText('Cerrar sesión'));
-    expect(mockCerrarSesion).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Mi perfil')).toBeOnTheScreen();
   });
 });

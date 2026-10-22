@@ -27,6 +27,7 @@ function Navegacion() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={estado === 'activa'}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="perfil" />
       </Stack.Protected>
       <Stack.Protected guard={estado === 'sin-sesion'}>
         <Stack.Screen name="login" />

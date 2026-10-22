@@ -1,6 +1,7 @@
 import Layout from '@/app/_layout';
 import Home from '@/app/index';
 import Login from '@/app/login';
+import Perfil from '@/app/perfil';
 import { requestAutenticado } from '@/lib/api/autenticado';
 import { act, renderRouter, screen } from 'expo-router/testing-library';
 
@@ -22,7 +23,7 @@ jest.mock('@/lib/session-storage', () => ({
 }));
 
 const usuario = { id: 'u1', nombre: 'Ana Prueba', email: 'ana@correo.com', fotoUrl: null };
-const rutas = { _layout: Layout, index: Home, login: Login };
+const rutas = { _layout: Layout, index: Home, login: Login, perfil: Perfil };
 const fetchMock = jest.fn();
 
 function respuesta(status: number, body: unknown) {
