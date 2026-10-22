@@ -4,9 +4,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
+import { registrarManejadorDeSesion } from './api/autenticado';
 import { login, loginDeDesarrollo, type RespuestaLogin, type Usuario } from './api/auth';
 import { sesionDePruebaDisponible } from './dev-session';
 import { auth } from './firebase';
@@ -83,6 +85,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSesion(null);
     setEstado('sin-sesion');
   }, []);
+
+  // Las llamadas autenticadas del Adapter leen la sesión actual y cierran la sesión si el backend la rechaza (401)
+  const sesionActual = useRef<Sesion | null>(null);
+  sesionActual.current = sesion;
+  useEffect(() => {
+    return registrarManejadorDeSesion({
+      obtenerSesion: () => sesionActual.current,
+      alRechazarSesion: () => {
+        void cerrarSesion();
+      },
+    });
+  }, [cerrarSesion]);
+
+  // La sesión dura 24 h (RNF-01): al vencer, la app cierra la sesión sola y vuelve al login
+  useEffect(() => {
+    if (!sesion) return;
+    const temporizador = setTimeout(
+      () => {
+        void cerrarSesion();
+      },
+      Math.max(sesion.expiraEn - Date.now(), 0),
+    );
+    return () => clearTimeout(temporizador);
+  }, [sesion, cerrarSesion]);
 
   const valor = useMemo(
     () => ({ estado, sesion, iniciarSesion, iniciarSesionDePrueba, cerrarSesion }),

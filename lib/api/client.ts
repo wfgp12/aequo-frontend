@@ -20,7 +20,7 @@ export class NetworkError extends Error {
   }
 }
 
-type Opciones = {
+export type OpcionesDeRequest = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   token?: string;
@@ -28,7 +28,7 @@ type Opciones = {
 
 export async function request<T>(
   path: string,
-  { method = 'GET', body, token }: Opciones = {},
+  { method = 'GET', body, token }: OpcionesDeRequest = {},
 ): Promise<T> {
   let res: Response;
   try {
