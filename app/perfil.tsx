@@ -1,8 +1,9 @@
+import { DialogoEliminarCuenta } from '@/components/dialogo-eliminar-cuenta';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { NetworkError } from '@/lib/api/client';
+import { ApiError, NetworkError } from '@/lib/api/client';
 import type { Usuario } from '@/lib/api/auth';
-import { obtenerPerfil } from '@/lib/api/usuarios';
+import { eliminarCuenta, obtenerPerfil } from '@/lib/api/usuarios';
 import { useSession } from '@/lib/session';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -41,6 +42,9 @@ export default function Perfil() {
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [intento, setIntento] = useState(0);
+  const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [errorAlEliminar, setErrorAlEliminar] = useState<string | null>(null);
 
   useEffect(() => {
     let vigente = true;
@@ -64,6 +68,26 @@ export default function Perfil() {
     setError(null);
     setCargando(true);
     setIntento((n) => n + 1);
+  }
+
+  function cerrarDialogo() {
+    setDialogoAbierto(false);
+    setErrorAlEliminar(null);
+  }
+
+  async function confirmarEliminacion() {
+    setErrorAlEliminar(null);
+    setEliminando(true);
+    try {
+      await eliminarCuenta();
+      // Cuenta eliminada: el JWT ya no sirve, así que se borra la sesión local y la app vuelve al login
+      await cerrarSesion();
+    } catch (e) {
+      // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
+      if (e instanceof ApiError && e.status === 401) return;
+      setErrorAlEliminar('No pudimos eliminar tu cuenta. Inténtalo de nuevo en unos minutos.');
+      setEliminando(false);
+    }
   }
 
   return (
@@ -122,8 +146,34 @@ export default function Perfil() {
           >
             <Text className="font-semibold">Cerrar sesión</Text>
           </Button>
+
+          <View className="mt-12 w-full">
+            <Text className="text-xs font-semibold">Zona de peligro</Text>
+            <Text variant="muted" className="mt-1 text-xs">
+              Eliminar tu cuenta borra para siempre todos tus movimientos, tarjetas, préstamos,
+              presupuesto, categorías y metas.
+            </Text>
+            <Button
+              variant="outline"
+              className="mt-3 h-[50px] w-full"
+              onPress={() => setDialogoAbierto(true)}
+            >
+              <Text className="font-semibold">Eliminar mi cuenta</Text>
+            </Button>
+          </View>
         </View>
       )}
+
+      {dialogoAbierto ? (
+        <DialogoEliminarCuenta
+          eliminando={eliminando}
+          error={errorAlEliminar}
+          onCancelar={cerrarDialogo}
+          onConfirmar={() => {
+            void confirmarEliminacion();
+          }}
+        />
+      ) : null}
     </View>
   );
 }
