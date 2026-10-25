@@ -28,6 +28,7 @@ function Navegacion() {
       <Stack.Protected guard={estado === 'activa'}>
         <Stack.Screen name="index" />
         <Stack.Screen name="perfil" />
+        <Stack.Screen name="registrar" options={{ presentation: 'modal' }} />
       </Stack.Protected>
       <Stack.Protected guard={estado === 'sin-sesion'}>
         <Stack.Screen name="login" />
