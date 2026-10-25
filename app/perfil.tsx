@@ -6,7 +6,7 @@ import type { Usuario } from '@/lib/api/auth';
 import { eliminarCuenta, obtenerPerfil } from '@/lib/api/usuarios';
 import { useSession } from '@/lib/session';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, View } from 'react-native';
 
 // Lenguaje cotidiano, sin jerga técnica (RNF-04)
@@ -45,6 +45,8 @@ export default function Perfil() {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [errorAlEliminar, setErrorAlEliminar] = useState<string | null>(null);
+  // Bandera síncrona: evita que dos toques seguidos confirmen la eliminación dos veces
+  const eliminacionEnCurso = useRef(false);
 
   useEffect(() => {
     let vigente = true;
@@ -76,6 +78,8 @@ export default function Perfil() {
   }
 
   async function confirmarEliminacion() {
+    if (eliminacionEnCurso.current) return;
+    eliminacionEnCurso.current = true;
     setErrorAlEliminar(null);
     setEliminando(true);
     try {
@@ -86,6 +90,7 @@ export default function Perfil() {
       // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
       if (e instanceof ApiError && e.status === 401) return;
       setErrorAlEliminar('No pudimos eliminar tu cuenta. Inténtalo de nuevo en unos minutos.');
+      eliminacionEnCurso.current = false;
       setEliminando(false);
     }
   }
