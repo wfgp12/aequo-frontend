@@ -11,7 +11,7 @@ import { NetworkError } from '@/lib/api/client';
 import { crearTransaccion, type MetodoPago } from '@/lib/api/transacciones';
 import { formatearPesos } from '@/lib/dinero';
 import { hoy } from '@/lib/fechas';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View } from 'react-native';
 
 const ETIQUETA_METODO: Record<MetodoPago, string> = {
@@ -50,6 +50,8 @@ export function FlujoRegistro({ tipo, onCerrar }: Props) {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [guardado, setGuardado] = useState(false);
+  // Bandera síncrona: dos toques muy rápidos pueden entrar antes de que se repinte el botón deshabilitado
+  const enVuelo = useRef(false);
 
   const cambiar = (parcial: Partial<Datos>) => setDatos((d) => ({ ...d, ...parcial }));
   const elegir = (parcial: Partial<Datos>, siguiente: number) => {
@@ -59,7 +61,8 @@ export function FlujoRegistro({ tipo, onCerrar }: Props) {
 
   async function guardar() {
     const { categoria, metodo, valor, fecha, descripcion } = datos;
-    if (!categoria || !metodo) return;
+    if (!categoria || !metodo || enVuelo.current) return;
+    enVuelo.current = true;
     setError(null);
     setGuardando(true);
     try {
@@ -76,6 +79,7 @@ export function FlujoRegistro({ tipo, onCerrar }: Props) {
       // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
       setError(mensajeDeError(e));
     } finally {
+      enVuelo.current = false;
       setGuardando(false);
     }
   }

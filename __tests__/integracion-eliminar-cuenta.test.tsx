@@ -128,6 +128,22 @@ describe('Eliminar la cuenta (integración)', () => {
     expect(mockAlmacen.has('sesion')).toBe(false);
   });
 
+  it('dos toques seguidos en Eliminar cuenta llaman al backend una sola vez', async () => {
+    let terminar!: (r: unknown) => void;
+    backend(() => new Promise((resolver) => (terminar = resolver)));
+    await abrirDialogoDeEliminacion();
+    await fireEvent.changeText(screen.getByLabelText(CAMPO), 'ELIMINAR');
+    const eliminar = screen.getByText('Eliminar cuenta');
+
+    await fireEvent.press(eliminar);
+    await fireEvent.press(eliminar);
+    expect(llamadasDelete()).toHaveLength(1);
+
+    terminar(sinCuerpo);
+    expect(await screen.findByText('Continuar con Google')).toBeOnTheScreen();
+    expect(llamadasDelete()).toHaveLength(1);
+  });
+
   it('si el backend responde 401 vuelve al login sin mostrar el aviso de error', async () => {
     backend(() =>
       respuesta(401, {

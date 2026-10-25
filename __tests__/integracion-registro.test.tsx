@@ -297,6 +297,34 @@ describe('Registro paso a paso (integración)', () => {
     expect(mockAlmacen.has('sesion')).toBe(false);
   });
 
+  it('dos toques seguidos en Guardar envían una sola petición', async () => {
+    let terminar!: (r: unknown) => void;
+    backend(() => new Promise((resolver) => (terminar = resolver)));
+    await llegarAlResumenDeEgreso();
+    const guardar = screen.getByText('Guardar');
+
+    await fireEvent.press(guardar);
+    await fireEvent.press(guardar);
+    expect(creaciones()).toHaveLength(1);
+
+    terminar(respuesta(201, {}));
+    expect(await screen.findByText('¡Listo!')).toBeOnTheScreen();
+    expect(creaciones()).toHaveLength(1);
+  });
+
+  it('si el guardado falla se puede volver a guardar (la bandera se libera)', async () => {
+    let intentos = 0;
+    backend(() => (++intentos === 1 ? respuesta(500, { message: 'error' }) : respuesta(201, {})));
+    await llegarAlResumenDeEgreso();
+
+    await fireEvent.press(screen.getByText('Guardar'));
+    await screen.findByText(/No pudimos guardar tu movimiento/);
+    await fireEvent.press(screen.getByText('Guardar'));
+
+    expect(await screen.findByText('¡Listo!')).toBeOnTheScreen();
+    expect(creaciones()).toHaveLength(2);
+  });
+
   it('sin un tipo válido en la dirección vuelve al inicio en lugar de adivinar', async () => {
     backend();
     mockAlmacen.set(
