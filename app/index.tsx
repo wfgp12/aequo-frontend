@@ -24,6 +24,11 @@ export default function Home() {
             <Text className="font-semibold">Registrar egreso</Text>
           </Button>
         </Link>
+        <Link href="/movimientos" asChild>
+          <Button variant="outline">
+            <Text>Movimientos</Text>
+          </Button>
+        </Link>
         <Link href="/perfil" asChild>
           <Button variant="outline">
             <Text>Mi perfil</Text>
