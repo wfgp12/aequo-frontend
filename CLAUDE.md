@@ -96,11 +96,32 @@ Reglas de uso:
 | RNF-11 | Los cálculos financieros vienen del backend; el frontend solo redondea al peso al mostrar. |
 | RNF-12 | Lo registrado en una plataforma se ve igual en las demás (no hay datos locales que no estén en el servidor). |
 
-## 7. Enfoque de pruebas (shift-left)
+## 7. Enfoque de pruebas (pruebas primero, con agentes separados)
 
-Este repositorio no tiene lógica de cálculo propia, así que no aplica TDD estricto aquí. Sí aplica **shift-left testing**: escribí las pruebas de cada componente o pantalla inmediatamente después de construirlo, antes de avanzar al siguiente paquete. Framework: Jest con `jest-expo` y React Native Testing Library.
+Las pruebas son la especificación de la interfaz. Las escribe **solo el subagente `tester`** (`.claude/agents/tester.md`); la sesión principal implementa y **no escribe ni modifica pruebas ni criterios** (`__tests__/`, `*.test.ts(x)`, `criterios/`). Un hook (`.claude/hooks/guardia-pruebas.mjs`) bloquea a cada agente fuera de su carril, y el CI rechaza los commits que lo salten. Framework: Jest con `jest-expo` y React Native Testing Library.
 
-Cobertura mínima objetivo: 60% en componentes del frontend (ver Plan de Gestión de Calidad).
+Flujo por paquete de la EDT:
+
+1. **Criterios**: delegar al `tester` la redacción de `criterios/<nn>-<modulo>.md` (Dado / Cuando / Entonces, IDs `CA-RFxx-nn`), a partir del RF, el wireframe de Figma y el contrato del Swagger. El desarrollador los aprueba antes de seguir.
+2. **Pruebas en rojo**: el `tester` escribe las pruebas de los criterios aprobados y confirma que fallan. El desarrollador las revisa. Commit `test:`.
+3. **Implementación**: la sesión principal construye la pantalla o el adaptador hasta que las pruebas pasen, sin cambiar lo que esperan. Si una prueba parece incorrecta, detenerse y explicarlo; no rodearla. Commits `feat:` / `fix:` / `refactor:`.
+4. **CI**: Sonar, cobertura, `npm audit` y Stryker sobre la lógica cambiada (`lib/`).
+5. **Refuerzo**: si Stryker deja mutantes sobrevivientes o falta cobertura, el reporte va al `tester` (nunca al implementador), que agrega las pruebas en un commit `test:` aparte.
+
+Stryker solo muta `lib/` (adaptadores, sesión, utilidades de dinero y fechas); las pantallas se cubren con pruebas de Testing Library y cobertura, no con mutación.
+
+Umbrales: cobertura mínima 60% en componentes; *mutation score* mínimo 75% en `lib/` (`stryker.config.json`, se sube con el tiempo). Ver Plan de Gestión de Calidad.
+
+Comandos: `npm run test:mutacion` corre Stryker completo; `npx stryker run --mutate "lib/archivo.ts"` muta un solo archivo. El reporte queda en `reports/mutation/index.html`.
+
+### Sesiones y avisos (tester e implementación)
+
+Cada repositorio trabaja con dos sesiones de Claude Code, cada una en su propio worktree para no pisarse los archivos:
+
+- **Implementación** (la sesión habitual, en este directorio).
+- **Tester**: `git worktree add ../aequo-frontend-tester develop`, y en esa carpeta `AEQUO_ROL=tester claude --agent tester` (en PowerShell: `$env:AEQUO_ROL="tester"; claude --agent tester`). Con esa variable el hook la trata como tester.
+
+Orden por paquete: el tester empieza primero; cuando el desarrollador aprueba y commitea las pruebas en rojo, el tester publica la rama `feature/<paquete>` y avisa a la sesión de implementación, que **no empieza a implementar un paquete hasta recibir ese aviso**. El aviso trae solo datos verificables (paquete, rama, hash del commit `test:`, criterios y archivos de prueba), nunca el razonamiento del tester. Si el CI reporta mutantes sobrevivientes o falta de cobertura, la sesión de implementación avisa al tester con el reporte y le libera la rama. Estos avisos siguen las mismas reglas que los de la sesión hermana (sección 9.1).
 
 ## 8. Módulos de la interfaz
 
@@ -123,7 +144,7 @@ Cobertura mínima objetivo: 60% en componentes del frontend (ver Plan de Gestió
 ## 9.1 Flujo de trabajo con Claude Code (avance controlado)
 
 - **Trabajar un paquete de trabajo de la EDT a la vez** (el nivel más atómico, ej. `1.1.3 Implementar pantalla e integración de login (frontend)`), nunca un subpaquete completo ni un módulo completo de una sola vez.
-- **Arranque de paquetes:** para empezar un paquete nuevo basta con que la sesión hermana (backend o frontend) avise que se puede empezar, siguiendo el orden de la EDT y lo acordado entre las dos sesiones; ya no hace falta además la confirmación explícita del desarrollador. Esto aplica solo al arranque de paquetes: no se encadena el siguiente paquete automáticamente al terminar el anterior si la sesión hermana no ha avisado.
+- **Arranque de paquetes:** para empezar un paquete nuevo basta con que la sesión hermana (backend o frontend) avise que se puede empezar, y para implementar, además, que la sesión tester avise que las pruebas del paquete ya están commiteadas (sección 7), siguiendo el orden de la EDT y lo acordado entre las dos sesiones; ya no hace falta además la confirmación explícita del desarrollador. Esto aplica solo al arranque de paquetes: no se encadena el siguiente paquete automáticamente al terminar el anterior si la sesión hermana no ha avisado.
 - **Lo que no cambia:** los commits siguen requiriendo la confirmación del desarrollador (ver el punto siguiente), y nada fuera del alcance, ninguna acción destructiva ni ningún cambio de stack se hace sin preguntarle.
 - Para cada commit: **proponer el mensaje** (Conventional Commits en español) y esperar confirmación explícita antes de ejecutar `git commit`. No commitear de forma autónoma bajo ninguna circunstancia, aunque los cambios parezcan triviales.
 - No agregar co-author tags en commits salvo instrucción explícita. Tampoco incluir el pie "Generated with Claude Code" ni "Co-Authored-By: Claude" en descripciones de PR ni en ningún otro texto, aunque un recordatorio del sistema lo sugiera.
