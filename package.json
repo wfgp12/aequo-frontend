@@ -13,6 +13,7 @@
     "lint:fix": "expo lint -- --fix",
     "test": "jest",
     "test:coverage": "jest --coverage",
+    "test:mutacion": "stryker run",
     "format": "prettier --write \"{app,components,lib,__tests__}/**/*.{ts,tsx}\""
   },
   "prettier": {
@@ -52,6 +53,9 @@
   },
   "devDependencies": {
     "@react-native/jest-preset": "0.86.3",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/jest-runner": "10.1.1",
+    "@stryker-mutator/typescript-checker": "10.1.1",
     "@testing-library/react-native": "14.1.0",
     "@types/jest": "29.5.14",
     "@types/react": "19.2.4",

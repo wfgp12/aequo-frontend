@@ -45,3 +45,7 @@ google-services.json
 .DS_Store
 Thumbs.db
 *.pem
+
+# Stryker (pruebas de mutación)
+/reports
+.stryker-tmp
