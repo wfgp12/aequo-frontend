@@ -2,17 +2,13 @@ import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import type { TipoMovimiento } from '@/lib/api/categorias';
 import type { MetodoPago } from '@/lib/api/transacciones';
+import {
+  AVISO_TARJETA_DE_CREDITO,
+  opcionesDeMetodo,
+  type OpcionDeMetodo,
+} from '@/lib/metodos-de-pago';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
-
-type Opcion = { etiqueta: string; valor: MetodoPago | 'TARJETA_CREDITO' };
-
-const OPCIONES: Opcion[] = [
-  { etiqueta: 'Efectivo', valor: 'EFECTIVO' },
-  { etiqueta: 'Tarjeta débito', valor: 'DEBITO' },
-  { etiqueta: 'Tarjeta crédito', valor: 'TARJETA_CREDITO' },
-  { etiqueta: 'Transferencia', valor: 'TRANSFERENCIA' },
-];
 
 type Props = {
   tipo: TipoMovimiento;
@@ -23,16 +19,10 @@ type Props = {
 /** Paso 3: "¿Cómo pagaste?". La lista avanza al tocar una opción. */
 export function PasoMetodoPago({ tipo, onElegir, onAtras }: Props) {
   const [aviso, setAviso] = useState<string | null>(null);
-  // La tarjeta de crédito solo aplica a los egresos
-  const opciones =
-    tipo === 'EGRESO' ? OPCIONES : OPCIONES.filter((o) => o.valor !== 'TARJETA_CREDITO');
 
-  function elegir(opcion: Opcion) {
+  function elegir(opcion: OpcionDeMetodo) {
     if (opcion.valor === 'TARJETA_CREDITO') {
-      // Las compras con tarjeta se registran en el módulo de tarjetas, que todavía no existe
-      setAviso(
-        'Las compras con tarjeta de crédito se podrán registrar muy pronto. Por ahora elige otro método.',
-      );
+      setAviso(AVISO_TARJETA_DE_CREDITO);
       return;
     }
     setAviso(null);
@@ -45,7 +35,7 @@ export function PasoMetodoPago({ tipo, onElegir, onAtras }: Props) {
         {tipo === 'EGRESO' ? '¿Cómo pagaste?' : '¿Cómo lo recibiste?'}
       </Text>
       <View className="mt-3 flex-1 gap-2">
-        {opciones.map((o) => (
+        {opcionesDeMetodo(tipo).map((o) => (
           <Pressable
             key={o.valor}
             accessibilityRole="button"
