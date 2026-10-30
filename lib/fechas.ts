@@ -54,3 +54,33 @@ export function fechaCorta(iso: string, ahora = new Date()) {
 export function nombreDelMes(mes: number) {
   return MESES[mes];
 }
+
+const MESES_CORTOS = [
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
+];
+
+/** "17/09/2026", el formato de los campos de fecha del diseño (dd/mm/aaaa). */
+export function fechaDdMmAaaa(iso: string) {
+  const [anio, mes, dia] = iso.split('-');
+  return `${dia}/${mes}/${anio}`;
+}
+
+/** Encabezado de un día en la lista: "HOY · JUEVES 17 SEP", "AYER · MIÉRCOLES 16 SEP" o "LUNES 14 SEP". */
+export function encabezadoDeDia(iso: string, ahora = new Date()) {
+  const d = desdeFechaIso(iso);
+  const dia = `${DIAS[d.getDay()]} ${d.getDate()} ${MESES_CORTOS[d.getMonth()]}`;
+  if (iso === hoy(ahora)) return `HOY · ${dia}`.toUpperCase();
+  if (iso === ayer(ahora)) return `AYER · ${dia}`.toUpperCase();
+  return dia.toUpperCase();
+}
