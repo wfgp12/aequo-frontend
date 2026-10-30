@@ -66,17 +66,44 @@ describe('Adapters del registro', () => {
       descripcion: 'almuerzo',
     };
 
+    // Contrato aprobado (criterios/02-registro-idempotencia.md): la clave entra como segundo parámetro
+    const clave = '0b9d3c1e-6a52-4f7e-9d8e-2c4f1a7b5e60';
+
     it('envía POST /transacciones con el contrato del backend y devuelve lo creado', async () => {
       const creada = { ...datos, id: 't1', clasificacionFlujo: 'ORDINARIO', creadaEn: 'x' };
       fetchMock.mockResolvedValue(respuesta(201, creada));
 
-      await expect(crearTransaccion(datos)).resolves.toEqual(creada);
+      await expect(crearTransaccion(datos, clave)).resolves.toEqual(creada);
 
       const [url, init] = fetchMock.mock.calls[0];
       expect(url).toMatch(/\/transacciones$/);
       expect(init.method).toBe('POST');
       expect(init.headers.Authorization).toBe('Bearer jwt-vigente');
       expect(JSON.parse(init.body)).toEqual(datos);
+    });
+
+    it('CA-RF06-15 envía la clave en el header Idempotency-Key y no dentro del cuerpo', async () => {
+      fetchMock.mockResolvedValue(respuesta(201, {}));
+
+      await crearTransaccion(datos, clave);
+
+      const [, init] = fetchMock.mock.calls[0];
+      expect(init.headers['Idempotency-Key']).toBe(clave);
+      expect(init.headers.Authorization).toBe('Bearer jwt-vigente');
+      expect(JSON.parse(init.body)).toEqual(datos);
+      expect(init.body).not.toContain(clave);
+    });
+
+    it('CA-RF06-15 cada llamada lleva la clave que recibe: la misma en un reintento y otra en una acción nueva', async () => {
+      fetchMock.mockResolvedValue(respuesta(201, {}));
+      const otraClave = '5f2d8a40-1c7b-4e39-8b6a-9d0e3f1a2c47';
+
+      await crearTransaccion(datos, clave);
+      await crearTransaccion(datos, clave);
+      await crearTransaccion(datos, otraClave);
+
+      const claves = fetchMock.mock.calls.map(([, init]) => init.headers['Idempotency-Key']);
+      expect(claves).toEqual([clave, clave, otraClave]);
     });
 
     it('une los mensajes del 400, que empiezan por el nombre del campo', async () => {
@@ -86,7 +113,7 @@ describe('Adapters del registro', () => {
         }),
       );
 
-      await expect(crearTransaccion(datos)).rejects.toMatchObject({
+      await expect(crearTransaccion(datos, clave)).rejects.toMatchObject({
         status: 400,
         message: 'monto debe ser mayor que cero, fecha debe tener el formato YYYY-MM-DD',
       });
@@ -95,8 +122,18 @@ describe('Adapters del registro', () => {
 
     it('ante un 401 cierra la sesión', async () => {
       fetchMock.mockResolvedValue(respuesta(401, { message: 'Sesión inválida o vencida' }));
-      await expect(crearTransaccion(datos)).rejects.toMatchObject({ status: 401 });
+      await expect(crearTransaccion(datos, clave)).rejects.toMatchObject({ status: 401 });
       expect(alRechazarSesion).toHaveBeenCalledTimes(1);
     });
-  });
+
+    it('CA-RF06-19 un 409 (todavía en proceso) llega como ApiError 409 y no cierra la sesión', async () => {
+      fetchMock.mockResolvedValue(
+        respuesta(409, {
+          message: 'La petición ya se está procesando: espera su resultado antes de reintentar',
+        }),
+      );
+
+      await expect(crearTransaccion(datos, clave)).rejects.toMatchObject({ status: 409 });
+      expect(alRechazarSesion).not.toHaveBeenCalled();
+    });  });
 });

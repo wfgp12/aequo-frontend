@@ -28,9 +28,16 @@ export type Transaccion = Required<NuevaTransaccion> & {
 
 export const MAX_DESCRIPCION = 200;
 
-/** POST /transacciones: el tipo lo fija el botón con el que se inició el registro. */
-export function crearTransaccion(datos: NuevaTransaccion) {
-  return requestAutenticado<Transaccion>('/transacciones', { method: 'POST', body: datos });
+/**
+ * POST /transacciones: el tipo lo fija el botón con el que se inició el registro.
+ * La clave (UUID) identifica la acción del usuario: un reintento la reutiliza y el backend no crea un segundo movimiento.
+ */
+export function crearTransaccion(datos: NuevaTransaccion, claveIdempotencia: string) {
+  return requestAutenticado<Transaccion>('/transacciones', {
+    method: 'POST',
+    body: datos,
+    claveIdempotencia,
+  });
 }
 
 export type FiltrosTransacciones = {
