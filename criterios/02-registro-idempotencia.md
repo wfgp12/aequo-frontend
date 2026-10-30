@@ -76,6 +76,32 @@ Este archivo cubre el uso, desde el frontend, de la **clave de idempotencia** qu
 
 ---
 
+## Cliente HTTP compartido (agregado en refuerzo)
+
+> Agregado en refuerzo: estos criterios salen del reporte de Stryker del PR #28 (`lib/api/client.ts`, puntaje 72 contra el mínimo de 75). El archivo se muta ahora porque la clave de idempotencia lo tocó, pero el comportamiento ya existía y lo usan todas las llamadas (login, registro, lista). Necesitan tu aprobación.
+
+### CA-RF06-23 — Las peticiones viajan como JSON, con o sin sesión
+
+- **Dado** cualquier llamada al backend con cuerpo (por ejemplo, guardar un movimiento o iniciar sesión)
+- **Cuando** se envía
+- **Entonces** lleva el header `Content-Type: application/json`, también cuando todavía no hay sesión (sin `Authorization`).
+
+### CA-RF06-24 — Un error sin mensaje útil del backend no rompe la pantalla
+
+- **Dado** que el backend responde con un error (por ejemplo, 502 de un servidor intermedio) cuyo cuerpo no es JSON, o es JSON sin el campo `message`
+- **Cuando** la llamada falla
+- **Entonces** la pantalla recibe un error con el mismo código de estado y como mensaje el texto de estado de la respuesta ("Bad Gateway"); nunca un fallo interno del cliente.
+
+### CA-RF06-25 — Sin conexión, el error lo dice con palabras sencillas
+
+- **Dado** que el backend no responde (sin internet, servidor caído)
+- **Cuando** la llamada falla
+- **Entonces** se produce un error de red con el mensaje "No se pudo conectar con el servidor".
+
+> Mutantes que no se cubren a propósito: los dos que cambian el `name` de `ApiError` y `NetworkError` (nadie en la app lee ese nombre; se distingue con `instanceof`), y `body === undefined ? undefined : …` (línea 48), que es **equivalente**: `JSON.stringify(undefined)` ya devuelve `undefined`, así que cambiar la condición no altera el comportamiento.
+
+---
+
 ## Pendientes de decisión (sin prueba hasta que se definan)
 
 > Pendiente de decisión: **respuesta 422** ("la clave ya se usó con otra petición"). En la práctica solo se da si se reutiliza una clave con otros datos. Falta definir el mensaje al usuario y si el siguiente "Guardar" lleva clave nueva.
