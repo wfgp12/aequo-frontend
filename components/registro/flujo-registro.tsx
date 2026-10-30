@@ -7,10 +7,11 @@ import { PasoValor } from '@/components/registro/paso-valor';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import type { Categoria, TipoMovimiento } from '@/lib/api/categorias';
-import { NetworkError } from '@/lib/api/client';
-import { crearTransaccion, type MetodoPago } from '@/lib/api/transacciones';
+import { ApiError, NetworkError } from '@/lib/api/client';
+import { crearTransaccion, type MetodoPago, type NuevaTransaccion } from '@/lib/api/transacciones';
 import { formatearPesos } from '@/lib/dinero';
 import { hoy } from '@/lib/fechas';
+import { randomUUID } from 'expo-crypto';
 import { useRef, useState } from 'react';
 import { View } from 'react-native';
 
@@ -22,9 +23,14 @@ const ETIQUETA_METODO: Record<MetodoPago, string> = {
 
 // Lenguaje cotidiano, sin jerga técnica (RNF-04)
 function mensajeDeError(e: unknown) {
-  return e instanceof NetworkError
-    ? 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.'
-    : 'No pudimos guardar tu movimiento. Revisa los datos e inténtalo de nuevo.';
+  if (e instanceof NetworkError) {
+    return 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
+  }
+  // 409: el backend sigue procesando el primer intento con esta misma clave
+  if (e instanceof ApiError && e.status === 409) {
+    return 'Tu movimiento todavía se está guardando. Espera unos segundos e inténtalo de nuevo.';
+  }
+  return 'No pudimos guardar tu movimiento. Revisa los datos e inténtalo de nuevo.';
 }
 
 type Datos = {
@@ -52,6 +58,14 @@ export function FlujoRegistro({ tipo, onCerrar }: Props) {
   const [guardado, setGuardado] = useState(false);
   // Bandera síncrona: dos toques muy rápidos pueden entrar antes de que se repinte el botón deshabilitado
   const enVuelo = useRef(false);
+  // Clave de idempotencia de la acción en curso: se reutiliza al reintentar y se renueva si cambian los datos
+  const intento = useRef<{ huella: string; clave: string } | null>(null);
+
+  function claveDe(nueva: NuevaTransaccion) {
+    const huella = JSON.stringify(nueva);
+    if (intento.current?.huella !== huella) intento.current = { huella, clave: randomUUID() };
+    return intento.current.clave;
+  }
 
   const cambiar = (parcial: Partial<Datos>) => setDatos((d) => ({ ...d, ...parcial }));
   const elegir = (parcial: Partial<Datos>, siguiente: number) => {
@@ -66,14 +80,15 @@ export function FlujoRegistro({ tipo, onCerrar }: Props) {
     setError(null);
     setGuardando(true);
     try {
-      await crearTransaccion({
+      const nueva: NuevaTransaccion = {
         tipo,
         monto: Number(valor),
         fecha,
         categoriaId: categoria.id,
         metodoPago: metodo,
         descripcion: descripcion.trim() || undefined,
-      });
+      };
+      await crearTransaccion(nueva, claveDe(nueva));
       setGuardado(true);
     } catch (e) {
       // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos

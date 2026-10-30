@@ -24,20 +24,27 @@ export type OpcionesDeRequest = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   token?: string;
+  /** UUID de la acción del usuario: el backend no repite una creación que ya terminó con esa clave. */
+  claveIdempotencia?: string;
 };
+
+function cabeceras(token?: string, claveIdempotencia?: string) {
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(claveIdempotencia ? { 'Idempotency-Key': claveIdempotencia } : {}),
+  };
+}
 
 export async function request<T>(
   path: string,
-  { method = 'GET', body, token }: OpcionesDeRequest = {},
+  { method = 'GET', body, token, claveIdempotencia }: OpcionesDeRequest = {},
 ): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: cabeceras(token, claveIdempotencia),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
