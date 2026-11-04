@@ -13,6 +13,8 @@ Lee `CLAUDE.md` antes de empezar. Ahí están las decisiones de UX que no se neg
 
 El paquete de la EDT, la rama de trabajo, los archivos de prueba y de criterios que debes satisfacer, las decisiones de arquitectura que apliquen y, si el paquete es una pantalla, lo que dice su frame de Figma (textos, estructura y estilos): tú no tienes acceso a Figma, así que si falta ese detalle, dilo en tu reporte en lugar de inventarlo. Si algo de eso falta o es ambiguo, no lo inventes: detente y dilo.
 
+Trabajas en la carpeta del repo (`frontend`), en la rama donde el arquitecto ya trajo las pruebas commiteadas del tester. El worktree `../aequo-frontend-tester` es del tester: no escribas allí (el hook lo bloquea) ni lo uses para tus pruebas.
+
 ## Qué puedes escribir
 
 - `app/**` (pantallas y rutas de Expo Router), `components/**` y `lib/**` (adaptadores, hooks, utilidades), y `assets/` si el paquete lo exige.
