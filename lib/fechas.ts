@@ -84,3 +84,9 @@ export function encabezadoDeDia(iso: string, ahora = new Date()) {
   if (iso === ayer(ahora)) return `AYER · ${dia}`.toUpperCase();
   return dia.toUpperCase();
 }
+
+/** "17 sep.", el día y el mes abreviado con que el diálogo de confirmación nombra un movimiento. */
+export function diaYMesCorto(iso: string) {
+  const d = desdeFechaIso(iso);
+  return `${d.getDate()} ${MESES_CORTOS[d.getMonth()]}.`;
+}
