@@ -73,3 +73,22 @@ export function listarTransacciones(filtros: FiltrosTransacciones = {}) {
   const texto = consulta.toString();
   return requestAutenticado<PaginaDeTransacciones>(`/transacciones${texto ? `?${texto}` : ''}`);
 }
+
+/** Campos que se pueden cambiar con PATCH /transacciones/:id (todos opcionales, al menos uno). */
+export type CambiosDeTransaccion = Partial<NuevaTransaccion>;
+
+/**
+ * PATCH /transacciones/:id: solo cambia lo que se envía. Al cambiar el tipo hay que enviar también una categoría
+ * del nuevo tipo. Responde con la transacción completa y actualizada. No lleva Idempotency-Key: repetirlo es seguro.
+ */
+export function actualizarTransaccion(id: string, cambios: CambiosDeTransaccion) {
+  return requestAutenticado<TransaccionListada>(`/transacciones/${id}`, {
+    method: 'PATCH',
+    body: cambios,
+  });
+}
+
+/** DELETE /transacciones/:id: borrado inmediato y permanente (204 sin cuerpo). Un 404 al repetirlo significa que ya no existe. */
+export function eliminarTransaccion(id: string) {
+  return requestAutenticado<void>(`/transacciones/${id}`, { method: 'DELETE' });
+}

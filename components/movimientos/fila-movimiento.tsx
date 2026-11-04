@@ -2,12 +2,22 @@ import { Text } from '@/components/ui/text';
 import type { TransaccionListada } from '@/lib/api/transacciones';
 import { montoConSigno, subtituloDelMovimiento, tituloDelMovimiento } from '@/lib/movimientos';
 import { cn } from '@/lib/utils';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 /** Una fila de la lista: marca de categoría, título, "Categoría · Método" y el monto con su signo. */
-export function FilaMovimiento({ item }: { item: TransaccionListada }) {
+export function FilaMovimiento({
+  item,
+  onPress,
+}: {
+  item: TransaccionListada;
+  onPress: () => void;
+}) {
   return (
-    <View className="mb-2 min-h-14 flex-row items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      className="mb-2 min-h-14 flex-row items-center gap-3 rounded-xl border border-border bg-card px-3 py-2"
+    >
       <View
         className={cn('size-9 rounded-full', item.tipo === 'INGRESO' ? 'bg-primary' : 'bg-muted')}
       />
@@ -20,6 +30,6 @@ export function FilaMovimiento({ item }: { item: TransaccionListada }) {
         </Text>
       </View>
       <Text className="font-semibold">{montoConSigno(item)}</Text>
-    </View>
+    </Pressable>
   );
 }
