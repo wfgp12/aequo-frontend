@@ -1,7 +1,9 @@
 import { FiltrosDeFecha } from '@/components/movimientos/filtros-de-fecha';
 import { FilaMovimiento } from '@/components/movimientos/fila-movimiento';
+import { HojaEditarMovimiento } from '@/components/movimientos/hoja-editar-movimiento';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import type { TransaccionListada } from '@/lib/api/transacciones';
 import { encabezadoDeDia, hoy } from '@/lib/fechas';
 import { agruparPorDia } from '@/lib/movimientos';
 import { useMovimientos } from '@/lib/use-movimientos';
@@ -18,6 +20,7 @@ export default function Movimientos() {
   const router = useRouter();
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState(hoy());
+  const [editando, setEditando] = useState<TransaccionListada | null>(null);
   const { items, cargando, error, hayMas, cargandoMas, errorAlCargarMas, cargarMas, recargar } =
     useMovimientos({ desde: desde || undefined, hasta: hasta || undefined });
   const secciones = useMemo(() => agruparPorDia(items), [items]);
@@ -75,7 +78,9 @@ export default function Movimientos() {
                 {encabezadoDeDia(section.fecha)}
               </Text>
             )}
-            renderItem={({ item }) => <FilaMovimiento item={item} />}
+            renderItem={({ item }) => (
+              <FilaMovimiento item={item} onPress={() => setEditando(item)} />
+            )}
             stickySectionHeadersEnabled={false}
             onEndReachedThreshold={0.5}
             onEndReached={() => {
@@ -110,6 +115,15 @@ export default function Movimientos() {
           />
         )}
       </View>
+
+      {editando ? (
+        <HojaEditarMovimiento
+          key={editando.id}
+          item={editando}
+          onCerrar={() => setEditando(null)}
+          onCambio={recargar}
+        />
+      ) : null}
     </View>
   );
 }
