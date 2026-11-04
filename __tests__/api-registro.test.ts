@@ -135,5 +135,6 @@ describe('Adapters del registro', () => {
 
       await expect(crearTransaccion(datos, clave)).rejects.toMatchObject({ status: 409 });
       expect(alRechazarSesion).not.toHaveBeenCalled();
-    });  });
+    });
+  });
 });
