@@ -161,8 +161,11 @@ export function HojaEditarMovimiento({ item, onCerrar, onCambio }: Props) {
 
   const cambiar = (parcial: Partial<FormularioMovimiento>) =>
     setForm((f) => ({ ...f, ...parcial }));
-  const alternar = (selector: Exclude<Selector, null>) =>
+  const alternar = (selector: Exclude<Selector, null>) => {
+    // El aviso de la tarjeta de crédito solo explica dentro de la lista de métodos: al abrir o cerrar un campo se va
+    setAvisoMetodo(null);
     setAbierto((actual) => (actual === selector ? null : selector));
+  };
 
   function cambiarTipo(tipo: TipoMovimiento) {
     if (tipo === form.tipo) return;
@@ -170,6 +173,7 @@ export function HojaEditarMovimiento({ item, onCerrar, onCambio }: Props) {
     // (si el usuario vuelve al tipo original, se recupera la categoría original)
     cambiar({ tipo, categoria: tipo === item.tipo ? formularioDesde(item).categoria : null });
     setAbierto(null);
+    setAvisoMetodo(null);
     setError(null);
   }
 
@@ -184,8 +188,7 @@ export function HojaEditarMovimiento({ item, onCerrar, onCambio }: Props) {
   }
 
   async function guardar() {
-    // Mientras se muestra el aviso de la tarjeta de crédito falta elegir otro método
-    if (enVuelo.current || avisoMetodo) return;
+    if (enVuelo.current) return;
     if (!form.categoria) {
       setError(avisoDeCategoria(form.tipo));
       return;
