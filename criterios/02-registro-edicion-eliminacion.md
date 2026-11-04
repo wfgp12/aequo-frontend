@@ -223,6 +223,22 @@ Cubre la segunda parte del paquete **2.2.5** (RF-08): editar cualquier campo de 
 
 ---
 
+## RF-08 — Aviso de tarjeta de crédito y "Guardar cambios" (agregado tras revisar el PR 29)
+
+> Estado: **Aprobado** (2026-11-04), tal como está. Surge de revisar la implementación mezclada: tocar "Tarjeta crédito" deja un aviso que bloquea "Guardar cambios" sin decirlo, y el aviso no se limpia al cerrar la lista de métodos. CA-RF08-10 solo cubría que la tarjeta no se elige.
+
+### CA-RF08-27 — Tocar "Tarjeta crédito" no impide guardar el resto de los cambios
+
+- **Dado** la hoja abierta con un movimiento pagado con débito, y el usuario cambió la nota
+- **Cuando** abre "Método de pago", toca "Tarjeta crédito" (ve el aviso), vuelve a tocar el campo "Método de pago" para cerrar la lista y toca "Guardar cambios"
+- **Entonces** el método sigue siendo "Tarjeta débito", se envía un solo `PATCH` con únicamente la nota nueva (sin `metodoPago`), la hoja se cierra y la lista muestra el cambio.
+- **Y** el aviso de la tarjeta ya no se ve una vez cerrada la lista de métodos.
+- **Y** si el usuario solo tocó "Tarjeta crédito" y no cambió nada más, "Guardar cambios" no llama al backend y cierra en silencio, igual que CA-RF08-08.
+
+> Propuesta: el aviso es solo una explicación dentro de la lista de métodos; no es un estado que bloquee el guardado. Hoy el botón queda inerte sin explicación cuando el usuario cierra la lista con el aviso activo.
+
+---
+
 ## Pendientes de decisión (sin prueba hasta que se definan)
 
 > Pendiente de decisión: **movimientos que no se pueden editar.** Los que vienen de tarjetas o deudas dan `409`. Falta definir si la lista los distingue (por ejemplo, sin el gesto de tocar) o si se deja que el usuario intente y vea el aviso de CA-RF08-17.

@@ -255,7 +255,6 @@ describe('Movimientos: editar y eliminar', () => {
 
       await fireEvent.press(screen.getByLabelText('Tarjeta crédito'));
       expect(screen.getByText(/se podrán registrar muy pronto/)).toBeOnTheScreen();
-      await fireEvent.press(screen.getByText('Guardar cambios'));
       expect(actualizar).not.toHaveBeenCalled();
 
       await fireEvent.press(screen.getByLabelText('Transferencia'));
@@ -263,6 +262,40 @@ describe('Movimientos: editar y eliminar', () => {
 
       await waitFor(() => expect(actualizar).toHaveBeenCalledTimes(1));
       expect(cambiosEnviados()).toEqual({ metodoPago: 'TRANSFERENCIA' });
+    });
+
+    it('CA-RF08-27 tocar "Tarjeta crédito" no impide guardar el resto: el método queda y el aviso se va al cerrar la lista', async () => {
+      await render(<Movimientos />);
+      await abrirEdicion();
+
+      await fireEvent.changeText(campoNota(), 'Almuerzo con amigos');
+      await fireEvent.press(campoMetodo());
+      await fireEvent.press(screen.getByLabelText('Tarjeta crédito'));
+      expect(screen.getByText(/se podrán registrar muy pronto/)).toBeOnTheScreen();
+
+      await fireEvent.press(campoMetodo());
+      expect(screen.queryByText(/se podrán registrar muy pronto/)).toBeNull();
+
+      await fireEvent.press(screen.getByText('Guardar cambios'));
+
+      await waitFor(() => expect(actualizar).toHaveBeenCalledTimes(1));
+      expect(cambiosEnviados()).toEqual({ descripcion: 'Almuerzo con amigos' });
+      await sheetCerrada();
+      expect(await screen.findByText('Almuerzo con amigos')).toBeOnTheScreen();
+      expect(screen.getByText('Alimentación · Tarjeta débito')).toBeOnTheScreen();
+    });
+
+    it('CA-RF08-27 si solo tocó "Tarjeta crédito" no hay cambios: Guardar no llama al backend y cierra la hoja', async () => {
+      await render(<Movimientos />);
+      await abrirEdicion();
+
+      await fireEvent.press(campoMetodo());
+      await fireEvent.press(screen.getByLabelText('Tarjeta crédito'));
+      await fireEvent.press(campoMetodo());
+      await fireEvent.press(screen.getByText('Guardar cambios'));
+
+      await sheetCerrada();
+      expect(actualizar).not.toHaveBeenCalled();
     });
   });
 
