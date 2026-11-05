@@ -1,3 +1,4 @@
+import { HojaNuevaCategoria } from '@/components/categorias/hoja-nueva-categoria';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { NetworkError } from '@/lib/api/client';
@@ -26,6 +27,7 @@ export function ListaDeCategorias({ tipo, seleccionada, onElegir }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
   const [busqueda, setBusqueda] = useState('');
+  const [creando, setCreando] = useState(false);
 
   useEffect(() => {
     let vigente = true;
@@ -117,6 +119,26 @@ export function ListaDeCategorias({ tipo, seleccionada, onElegir }: Props) {
           ))
         )}
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Agregar categoría"
+        onPress={() => setCreando(true)}
+        className="mt-2 h-12 flex-row items-center rounded-lg border border-dashed border-border px-3"
+      >
+        <Text className="font-semibold">+ Agregar categoría</Text>
+      </Pressable>
+      {creando ? (
+        <HojaNuevaCategoria
+          tipo={tipo}
+          onCerrar={() => setCreando(false)}
+          onCreada={(nueva) => {
+            // La lista local crece sin volver a pedirla al backend
+            setCategorias((actuales) => [...(actuales ?? []), nueva]);
+            setCreando(false);
+            onElegir(nueva);
+          }}
+        />
+      ) : null}
     </View>
   );
 }
