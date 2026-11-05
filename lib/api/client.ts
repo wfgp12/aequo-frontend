@@ -29,8 +29,12 @@ export type OpcionesDeRequest = {
 };
 
 function cabeceras(token?: string, claveIdempotencia?: string) {
+  // El backend decide con la zona del dispositivo cuál es el "mes actual" de los reportes (RF-13).
+  // Se lee en cada petición (no se cachea) por si el usuario viaja; si no hay valor, no se envía.
+  const zonaHoraria = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return {
     'Content-Type': 'application/json',
+    ...(zonaHoraria ? { 'X-Zona-Horaria': zonaHoraria } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(claveIdempotencia ? { 'Idempotency-Key': claveIdempotencia } : {}),
   };
