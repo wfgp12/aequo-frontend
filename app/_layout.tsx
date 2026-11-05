@@ -31,6 +31,10 @@ function Navegacion() {
         <Stack.Screen name="registrar" options={{ presentation: 'modal' }} />
         <Stack.Screen name="movimientos" />
       </Stack.Protected>
+      {/* Solo desarrollo: revisión visual de las gráficas, sin sesión (paquete 3.2.1) */}
+      <Stack.Protected guard={__DEV__}>
+        <Stack.Screen name="dev-graficas" />
+      </Stack.Protected>
       <Stack.Protected guard={estado === 'sin-sesion'}>
         <Stack.Screen name="login" />
       </Stack.Protected>
