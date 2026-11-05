@@ -9,6 +9,19 @@ const PALETTE = {
   black: '#090C11',
 };
 
+/** Colores reales (no clases) para las gráficas SVG, que no leen las variables de global.css. */
+export function coloresDeGrafica(esquema: 'light' | 'dark' | null | undefined) {
+  const oscuro = esquema === 'dark';
+  return {
+    acento: PALETTE.yellow,
+    textoSecundario: oscuro ? '#A6A9AE' : PALETTE.gray,
+    lineas: oscuro ? PALETTE.graphite : '#E3E4E6',
+    fondo: oscuro ? PALETTE.black : PALETTE.white,
+    // Los segmentos de la dona se turnan entre estos tonos de la paleta
+    serie: [PALETTE.yellow, oscuro ? PALETTE.white : PALETTE.graphite, PALETTE.gray],
+  };
+}
+
 export const NAV_THEME: Record<'light' | 'dark', Theme> = {
   light: {
     ...DefaultTheme,
