@@ -15,9 +15,35 @@ export type ReportePeriodo = {
   balance: number;
 };
 
+/** Un gasto por categoría ya calculado por el backend; `categoriaId` es null en "Sin categoría". */
+export type CategoriaGasto = {
+  categoriaId: string | null;
+  nombre: string;
+  total: number;
+  /** Porcentaje del total de egresos del periodo, ya calculado por el backend. */
+  porcentaje: number;
+};
+
+/** Egresos del periodo por categoría, en el orden que manda el backend (RNF-11). */
+export type ReporteCategorias = {
+  desde: string;
+  hasta: string;
+  total: number;
+  categorias: CategoriaGasto[];
+};
+
+/** Ruta del reporte con la consulta del periodo (sin periodo, el backend usa el mes actual). */
+function rutaReporte(ruta: string, periodo?: PeriodoReporte) {
+  const texto = new URLSearchParams(periodo).toString();
+  return `${ruta}${texto ? `?${texto}` : ''}`;
+}
+
 /** GET /reportes/periodo: se devuelve el cuerpo tal cual, sin redondear (el redondeo es al mostrar). */
 export function obtenerReportePeriodo(periodo?: PeriodoReporte) {
-  const consulta = new URLSearchParams(periodo);
-  const texto = consulta.toString();
-  return requestAutenticado<ReportePeriodo>(`/reportes/periodo${texto ? `?${texto}` : ''}`);
+  return requestAutenticado<ReportePeriodo>(rutaReporte('/reportes/periodo', periodo));
+}
+
+/** GET /reportes/categorias: se devuelve el cuerpo tal cual, sin reordenar ni recalcular. */
+export function obtenerReporteCategorias(periodo?: PeriodoReporte) {
+  return requestAutenticado<ReporteCategorias>(rutaReporte('/reportes/categorias', periodo));
 }
