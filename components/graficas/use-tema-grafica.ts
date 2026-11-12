@@ -15,7 +15,11 @@ const MARGEN = 48;
 const ANCHO_MAXIMO = 640;
 export const ANCHO_EJE_Y = 72;
 
-export const pesos = (valor: number) => `$${formatearPesos(valor)}`;
+/** "$1.500.000"; los negativos llevan el signo delante ("-$1.500.000"), salvo si se redondean a cero. */
+export const pesos = (valor: number) => {
+  const redondeado = Math.round(valor);
+  return `${redondeado < 0 ? '-' : ''}$${formatearPesos(Math.abs(redondeado))}`;
+};
 
 /**
  * Colores reales según el modo del sistema y un ancho que cabe en pantalla (móvil y web).

@@ -70,6 +70,23 @@ const MESES_CORTOS = [
   'dic',
 ];
 
+/** "2026-04" → "abr": el mes abreviado en minúscula, sin año (etiqueta de las gráficas). */
+export function mesCorto(periodo: string) {
+  return MESES_CORTOS[Number(periodo.slice(5, 7)) - 1];
+}
+
+/** Retrocede `cantidad` meses un mes YYYY-MM, cruzando el año si hace falta. */
+export function restarMeses(periodo: string, cantidad: number) {
+  const [anio, mes] = periodo.split('-').map(Number);
+  const indice = anio * 12 + (mes - 1) - cantidad;
+  return `${Math.floor(indice / 12)}-${dos((indice % 12) + 1)}`;
+}
+
+/** Mes local del dispositivo como YYYY-MM. */
+export function mesActual(ahora = new Date()) {
+  return aFechaIso(ahora).slice(0, 7);
+}
+
 /** "17/09/2026", el formato de los campos de fecha del diseño (dd/mm/aaaa). */
 export function fechaDdMmAaaa(iso: string) {
   const [anio, mes, dia] = iso.split('-');

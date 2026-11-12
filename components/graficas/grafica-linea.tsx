@@ -2,11 +2,19 @@ import { LineChart } from 'react-native-gifted-charts';
 import { View } from 'react-native';
 import { ANCHO_EJE_Y, pesos, useTemaGrafica, type PuntoGrafica } from './use-tema-grafica';
 
-type Props = { datos: PuntoGrafica[]; descripcion: string };
+type Props = {
+  datos: PuntoGrafica[];
+  descripcion: string;
+  /** Color de la línea y los puntos; si falta, el acento. */
+  color?: string;
+  /** Relleno del contenedor que hay que restar al ancho disponible. */
+  margenExtra?: number;
+};
 
 /** Línea de tiempo de un valor a lo largo de los periodos (RF-19). Los datos llegan calculados. */
-export function GraficaLinea({ datos, descripcion }: Props) {
-  const { colores, ancho } = useTemaGrafica();
+export function GraficaLinea({ datos, descripcion, color, margenExtra }: Props) {
+  const { colores, ancho } = useTemaGrafica(margenExtra);
+  const colorLinea = color ?? colores.acento;
   const lugar = (ancho - ANCHO_EJE_Y) / Math.max(datos.length, 1);
   const textoEje = { color: colores.textoSecundario, fontSize: 11 };
 
@@ -18,12 +26,12 @@ export function GraficaLinea({ datos, descripcion }: Props) {
         spacing={lugar}
         initialSpacing={lugar / 2}
         endSpacing={0}
-        color={colores.acento}
+        color={colorLinea}
         thickness={3}
-        dataPointsColor={colores.acento}
+        dataPointsColor={colorLinea}
         areaChart
-        startFillColor={colores.acento}
-        endFillColor={colores.acento}
+        startFillColor={colorLinea}
+        endFillColor={colorLinea}
         startOpacity={0.3}
         endOpacity={0}
         noOfSections={4}
