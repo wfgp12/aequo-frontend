@@ -48,6 +48,18 @@ describe('RootLayout', () => {
     expect(screen.queryByText('pantalla reportes')).toBeNull();
   });
 
+  it('CA-RF21-F02 con sesión activa la pantalla de la meta de ahorro está disponible', async () => {
+    mockEstado = 'activa';
+    await render(<RootLayout />);
+    expect(screen.getByText('pantalla meta-de-ahorro')).toBeOnTheScreen();
+  });
+
+  it('CA-RF21-F02 sin sesión la pantalla de la meta de ahorro no está disponible', async () => {
+    mockEstado = 'sin-sesion';
+    await render(<RootLayout />);
+    expect(screen.queryByText('pantalla meta-de-ahorro')).toBeNull();
+  });
+
   it('sin sesión expone el login y no la vista principal', async () => {
     mockEstado = 'sin-sesion';
     await render(<RootLayout />);

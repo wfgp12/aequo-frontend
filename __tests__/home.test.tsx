@@ -37,4 +37,16 @@ describe('Home', () => {
 
     expect(mockIr).toHaveBeenCalledWith('/reportes');
   });
+
+  it('CA-RF21-F01 ofrece el botón "Meta de ahorro", junto a "Movimientos", "Reportes" y "Mi perfil", que lleva a /meta-de-ahorro', async () => {
+    mockIr.mockClear();
+    await render(<Home />);
+
+    expect(screen.getByRole('button', { name: 'Movimientos' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Reportes' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Mi perfil' })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Meta de ahorro' }));
+
+    expect(mockIr).toHaveBeenCalledWith('/meta-de-ahorro');
+  });
 });
