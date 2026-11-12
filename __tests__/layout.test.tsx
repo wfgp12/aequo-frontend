@@ -36,6 +36,18 @@ describe('RootLayout', () => {
     expect(screen.queryByText('pantalla login')).toBeNull();
   });
 
+  it('CA-RF20-02 con sesión activa la pantalla de reportes está disponible', async () => {
+    mockEstado = 'activa';
+    await render(<RootLayout />);
+    expect(screen.getByText('pantalla reportes')).toBeOnTheScreen();
+  });
+
+  it('CA-RF20-02 sin sesión la pantalla de reportes no está disponible', async () => {
+    mockEstado = 'sin-sesion';
+    await render(<RootLayout />);
+    expect(screen.queryByText('pantalla reportes')).toBeNull();
+  });
+
   it('sin sesión expone el login y no la vista principal', async () => {
     mockEstado = 'sin-sesion';
     await render(<RootLayout />);
