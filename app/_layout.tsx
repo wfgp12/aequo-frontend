@@ -30,6 +30,7 @@ function Navegacion() {
         <Stack.Screen name="perfil" />
         <Stack.Screen name="registrar" options={{ presentation: 'modal' }} />
         <Stack.Screen name="movimientos" />
+        <Stack.Screen name="reportes" />
       </Stack.Protected>
       {/* Solo desarrollo: revisión visual de las gráficas, sin sesión (paquete 3.2.1) */}
       <Stack.Protected guard={__DEV__}>
