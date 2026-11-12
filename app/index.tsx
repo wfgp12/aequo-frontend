@@ -29,6 +29,11 @@ export default function Home() {
             <Text>Movimientos</Text>
           </Button>
         </Link>
+        <Link href="/reportes" asChild>
+          <Button variant="outline">
+            <Text>Reportes</Text>
+          </Button>
+        </Link>
         <Link href="/perfil" asChild>
           <Button variant="outline">
             <Text>Mi perfil</Text>
