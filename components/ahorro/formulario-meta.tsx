@@ -136,13 +136,15 @@ type Props = {
   mes: string;
   /** "septiembre de 2026" */
   mesLargo: string;
+  /** La meta del mes cambió (o se descubrió que la del servidor es otra): quien la muestra debe refrescarse. */
+  onMetaCambiada: () => void;
 };
 
 /**
  * Formulario de la meta del mes: elegir monto o porcentaje, guardar (crea o edita) y quitar.
  * Solo envía lo escrito: el backend calcula todo lo demás.
  */
-export function FormularioMeta({ metaInicial, mes, mesLargo }: Props) {
+export function FormularioMeta({ metaInicial, mes, mesLargo, onMetaCambiada }: Props) {
   const [metaId, setMetaId] = useState(metaInicial?.id ?? null);
   const [tipo, setTipo] = useState<TipoMeta>(metaInicial?.tipoMeta ?? 'MONTO_FIJO');
   // Cada tipo recuerda su propio valor: un monto y un porcentaje no son comparables
@@ -201,11 +203,15 @@ export function FormularioMeta({ metaInicial, mes, mesLargo }: Props) {
     if (metaId && esApi(e, 404)) {
       // La meta la quitaron en otro lado: lo escrito se conserva y el siguiente guardado crea una nueva
       setMetaId(null);
+      onMetaCambiada();
       return setAviso({
         texto: 'Esta meta ya no existe. Vuelve a guardarla para crearla de nuevo.',
       });
     }
-    if (!metaId && esApi(e, 409)) return mostrarLaGuardada();
+    if (!metaId && esApi(e, 409)) {
+      onMetaCambiada();
+      return mostrarLaGuardada();
+    }
     setAviso({ texto: ERROR_GENERAL });
   }
 
@@ -219,6 +225,7 @@ export function FormularioMeta({ metaInicial, mes, mesLargo }: Props) {
     try {
       mostrarMeta(await enviar(leido.valor));
       setAviso({ texto: 'Meta guardada.', exito: true });
+      onMetaCambiada();
     } catch (e) {
       await explicarFallo(e);
     } finally {
@@ -233,6 +240,7 @@ export function FormularioMeta({ metaInicial, mes, mesLargo }: Props) {
     setTipo('MONTO_FIJO');
     intento.current = null;
     setAviso({ texto: 'Meta quitada.', exito: true });
+    onMetaCambiada();
   }
 
   return (
