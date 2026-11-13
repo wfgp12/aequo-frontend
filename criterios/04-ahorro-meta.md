@@ -72,11 +72,15 @@ Cubre RF-21 (definir una meta de ahorro mensual, como porcentaje de los ingresos
 
 > Decisión (del desarrollador): la pantalla trabaja solo con la meta del mes actual; el mes es el del dispositivo, como en Reportes.
 
+> Actualizado en 4.3.2: "no se envía nada más" se refiere a la meta (no se crea, edita ni quita nada al entrar). El progreso del mes se pide aparte y a la vez (CA-RF22-F01).
+
 ### CA-RF21-F05 — Mientras carga, solo el indicador
 
 - **Dado** que el backend aún no responde (por ejemplo, el arranque en frío de Render, RNF-02)
 - **Cuando** el usuario ve la pantalla
 - **Entonces** ve el título "Meta de ahorro" y un indicador de carga ("Cargando tu meta de ahorro"); no ve el formulario, ni "Guardar meta", ni "Quitar meta", ni avisos de error.
+
+> Actualizado en 4.3.2: la pantalla tiene ahora un segundo indicador, el de la tarjeta de progreso ("Cargando tu progreso de ahorro", CA-RF22-F15); este criterio habla solo del indicador de la meta ("Cargando tu meta de ahorro") y no debe asumir que hay uno solo.
 
 > Decisión: sin saber si ya hay meta del mes, un "Guardar meta" tocado a tiempo crearía una segunda (409) o pisaría lo escrito al llegar la respuesta. Por eso el formulario aparece cuando termina la consulta.
 
@@ -132,7 +136,9 @@ Cubre RF-21 (definir una meta de ahorro mensual, como porcentaje de los ingresos
 - **Dado** la pantalla con el formulario visible (con o sin meta), hoy 17 de septiembre de 2026
 - **Cuando** el usuario la lee
 - **Entonces** ve el título del campo "Meta mensual"; el texto de ayuda del tipo elegido (con "Monto": "Es lo que quieres que te quede cada mes después de restar tus egresos a tus ingresos."; con "Porcentaje": "Es la parte de tus ingresos que quieres que te quede cada mes, después de restar tus egresos."); y la nota "Esta meta es para septiembre de 2026. Cada mes puedes fijar la tuya."
-- **Y** no ve la tarjeta de progreso (ni "83%", ni la barra, ni "Te faltan…"), ni el recuadro "Referencia", ni "Ingresos recurrentes", ni la frase "El cambio aplica desde este mes en adelante…" (ni espacios vacíos ni avisos de "próximamente").
+- **Y** no ve el recuadro "Referencia", ni "Ingresos recurrentes", ni la frase "El cambio aplica desde este mes en adelante…" (ni espacios vacíos ni avisos de "próximamente").
+
+> Actualizado en 4.3.2: la tarjeta de progreso ("83%", la barra, "Te faltan…", "Septiembre 2026") ya aparece arriba del formulario; esa cláusula queda sustituida por CA-RF22-F02 y F03 (`04-ahorro-progreso.md`).
 
 > Decisión (del desarrollador): la nota del Figma ("El cambio aplica desde este mes en adelante. Los meses anteriores conservan la meta que tenían.") se reemplaza por la del mes, porque la meta es de un solo mes y cada mes nuevo arranca sin meta. El texto de ayuda del porcentaje y el de la nota quedaron aprobados tal como están escritos (RNF-04).
 

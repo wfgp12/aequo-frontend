@@ -23,6 +23,27 @@ export async function obtenerMetaDelMes(mes: string): Promise<MetaAhorro | null>
   return items[0] ?? null;
 }
 
+/** Progreso del ahorro de un mes, tal como lo calcula el backend (no redondea ni tiene tope). */
+export type ProgresoAhorro = {
+  /** YYYY-MM */
+  periodo: string;
+  ingresoPropio: number;
+  egresos: number;
+  /** Ingresos propios menos egresos del mes: puede ser negativo. */
+  ahorroDelMes: number;
+  /** null si el mes no tiene meta. */
+  meta: { id: string; tipoMeta: TipoMeta; valorObjetivo: number; montoMeta: number } | null;
+  /** Ahorro del mes menos el monto de la meta: negativo = todavía falta. */
+  disponible: number;
+  /** null si no hay meta o si el monto de la meta es 0 (meta de porcentaje sin ingresos). */
+  porcentajeAvance: number | null;
+};
+
+/** GET /ahorro/progreso del mes (YYYY-MM): todas las cifras vienen calculadas del backend. */
+export function obtenerProgresoAhorro(mes: string) {
+  return requestAutenticado<ProgresoAhorro>(`/ahorro/progreso?mes=${mes}`);
+}
+
 /**
  * POST /ahorro/metas: crea la meta de un mes (un 409 si ya existe una).
  * La clave (UUID) identifica la acción del usuario: un reintento la reutiliza y el backend no crea otra.
