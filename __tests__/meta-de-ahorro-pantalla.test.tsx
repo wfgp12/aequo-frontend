@@ -4,7 +4,9 @@ import {
   crearMeta,
   eliminarMeta,
   obtenerMetaDelMes,
+  obtenerProgresoAhorro,
   type MetaAhorro,
+  type ProgresoAhorro,
 } from '@/lib/api/ahorro';
 import { ApiError, NetworkError } from '@/lib/api/client';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -16,12 +18,14 @@ const mockBack = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));
 jest.mock('@/lib/api/ahorro', () => ({
   obtenerMetaDelMes: jest.fn(),
+  obtenerProgresoAhorro: jest.fn(),
   crearMeta: jest.fn(),
   actualizarMeta: jest.fn(),
   eliminarMeta: jest.fn(),
 }));
 
 const obtener = jest.mocked(obtenerMetaDelMes);
+const progreso = jest.mocked(obtenerProgresoAhorro);
 const crear = jest.mocked(crearMeta);
 const actualizar = jest.mocked(actualizarMeta);
 const eliminar = jest.mocked(eliminarMeta);
@@ -162,6 +166,9 @@ beforeEach(() => {
   jest.useFakeTimers({ now: new Date(2026, 8, 17, 12), doNotFake: [...NO_FALSEAR] });
   mockBack.mockClear();
   obtener.mockReset().mockResolvedValue(null);
+  // La tarjeta de progreso (paquete 4.3.2) tiene sus propias pruebas (meta-de-ahorro-progreso.test.tsx): aquí se
+  // queda cargando, para que estas pruebas sigan hablando solo del formulario (CA-RF22, efecto en CA-RF21-F05/F12).
+  progreso.mockReset().mockReturnValue(new Promise<ProgresoAhorro>(() => {}));
   crear
     .mockReset()
     .mockImplementation(async (datos) => ({ ...BASE, id: 'creada-1', ...datos }) as MetaAhorro);
@@ -202,7 +209,10 @@ describe('Meta de ahorro: entrada y carga', () => {
     await render(<MetaDeAhorro />);
 
     expect(screen.getByText('Meta de ahorro')).toBeOnTheScreen();
+    // La tarjeta de progreso tiene su propio indicador ("Cargando tu progreso de ahorro", CA-RF22-F15): el de la
+    // meta se busca por su nombre, sin asumir que hay uno solo
     expect(screen.getByLabelText(TEXTO.cargando)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Cargando tu progreso de ahorro')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Guardar meta' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Quitar meta' })).toBeNull();
     expect(screen.queryByLabelText('Monto en pesos')).toBeNull();
@@ -303,8 +313,9 @@ describe('Meta de ahorro: lo que se ve según haya o no meta', () => {
     expect(screen.getByText(TEXTO.nota)).toBeOnTheScreen();
     expect(screen.queryByText(TEXTO.ayudaPorcentaje)).toBeNull();
     const texto = textosEnOrden().join(' ');
+    // La tarjeta de progreso sí aparece arriba (CA-RF22-F02 y F03); siguen sin verse estas otras cosas
     expect(texto).not.toMatch(
-      /83%|Te faltan|Referencia|Ingresos recurrentes|El cambio aplica desde este mes|Septiembre 2026|próximamente/i,
+      /Referencia|Ingresos recurrentes|El cambio aplica desde este mes|próximamente/i,
     );
   });
 
