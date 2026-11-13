@@ -49,4 +49,17 @@ describe('Home', () => {
 
     expect(mockIr).toHaveBeenCalledWith('/meta-de-ahorro');
   });
+
+  it('CA-RF24-F01 ofrece el botón "Tarjetas", junto a "Movimientos", "Reportes", "Meta de ahorro" y "Mi perfil", que lleva a /tarjetas', async () => {
+    mockIr.mockClear();
+    await render(<Home />);
+
+    expect(screen.getByRole('button', { name: 'Movimientos' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Reportes' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Meta de ahorro' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Mi perfil' })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Tarjetas' }));
+
+    expect(mockIr).toHaveBeenCalledWith('/tarjetas');
+  });
 });

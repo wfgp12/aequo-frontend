@@ -60,6 +60,19 @@ describe('RootLayout', () => {
     expect(screen.queryByText('pantalla meta-de-ahorro')).toBeNull();
   });
 
+  it('CA-RF24-F02 con sesión activa la lista de tarjetas y los cargos fijos de una tarjeta están disponibles', async () => {
+    mockEstado = 'activa';
+    await render(<RootLayout />);
+    expect(screen.getByText(/^pantalla tarjetas(\/index)?$/)).toBeOnTheScreen();
+    expect(screen.getByText('pantalla tarjetas/[id]/cargos')).toBeOnTheScreen();
+  });
+
+  it('CA-RF24-F02 sin sesión ni la lista de tarjetas ni los cargos fijos están disponibles', async () => {
+    mockEstado = 'sin-sesion';
+    await render(<RootLayout />);
+    expect(screen.queryByText(/^pantalla tarjetas/)).toBeNull();
+  });
+
   it('sin sesión expone el login y no la vista principal', async () => {
     mockEstado = 'sin-sesion';
     await render(<RootLayout />);
