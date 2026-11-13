@@ -34,6 +34,11 @@ export default function Home() {
             <Text>Reportes</Text>
           </Button>
         </Link>
+        <Link href="/meta-de-ahorro" asChild>
+          <Button variant="outline">
+            <Text>Meta de ahorro</Text>
+          </Button>
+        </Link>
         <Link href="/perfil" asChild>
           <Button variant="outline">
             <Text>Mi perfil</Text>
