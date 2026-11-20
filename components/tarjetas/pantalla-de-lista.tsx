@@ -20,6 +20,43 @@ type Props = {
   children: ReactNode;
 };
 
+type EstadoProps = Pick<
+  Props,
+  'etiquetaDeCarga' | 'cargando' | 'fallo' | 'onReintentar' | 'children'
+>;
+
+/** Lo que se ve de una lista remota: el indicador mientras carga, el aviso de fallo con "Reintentar" o la lista. */
+export function EstadoDeLista({
+  etiquetaDeCarga,
+  cargando,
+  fallo,
+  onReintentar,
+  children,
+}: EstadoProps) {
+  if (cargando) {
+    return (
+      <View className="items-center py-10">
+        <ActivityIndicator accessibilityLabel={etiquetaDeCarga} />
+      </View>
+    );
+  }
+  if (fallo) {
+    return (
+      <View className="items-center gap-3 py-6">
+        <Text variant="muted" role="alert" className="text-center">
+          {fallo.mensaje}
+        </Text>
+        {fallo.reintentar ? (
+          <Button variant="outline" onPress={onReintentar}>
+            <Text>Reintentar</Text>
+          </Button>
+        ) : null}
+      </View>
+    );
+  }
+  return <>{children}</>;
+}
+
 /** Pantalla de una lista del backend: encabezado con "Volver", indicador de carga, aviso de fallo y la lista. */
 export function PantallaDeLista({
   titulo,
@@ -55,24 +92,14 @@ export function PantallaDeLista({
           </View>
         </View>
 
-        {cargando ? (
-          <View className="items-center py-10">
-            <ActivityIndicator accessibilityLabel={etiquetaDeCarga} />
-          </View>
-        ) : fallo ? (
-          <View className="items-center gap-3 py-6">
-            <Text variant="muted" role="alert" className="text-center">
-              {fallo.mensaje}
-            </Text>
-            {fallo.reintentar ? (
-              <Button variant="outline" onPress={onReintentar}>
-                <Text>Reintentar</Text>
-              </Button>
-            ) : null}
-          </View>
-        ) : (
-          children
-        )}
+        <EstadoDeLista
+          etiquetaDeCarga={etiquetaDeCarga}
+          cargando={cargando}
+          fallo={fallo}
+          onReintentar={onReintentar}
+        >
+          {children}
+        </EstadoDeLista>
       </ScrollView>
       {hoja}
     </View>

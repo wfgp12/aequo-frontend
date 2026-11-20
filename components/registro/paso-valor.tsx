@@ -9,15 +9,17 @@ type Props = {
   valor: string;
   onCambiar: (digitos: string) => void;
   onSiguiente: () => void;
+  /** Otra pregunta en lugar de la del tipo ("¿Cuánto dinero necesitas?" en el avance en efectivo). */
+  pregunta?: string;
 };
 
 /** Paso 1: "¿Cuánto gastaste?" con el monto grande y el teclado numérico del sistema. */
-export function PasoValor({ tipo, valor, onCambiar, onSiguiente }: Props) {
+export function PasoValor({ tipo, valor, onCambiar, onSiguiente, pregunta }: Props) {
   return (
     <View className="flex-1">
       <View className="flex-1 items-center justify-center">
         <Text className="text-lg font-semibold">
-          {tipo === 'EGRESO' ? '¿Cuánto gastaste?' : '¿Cuánto recibiste?'}
+          {pregunta ?? (tipo === 'EGRESO' ? '¿Cuánto gastaste?' : '¿Cuánto recibiste?')}
         </Text>
         <CampoMonto
           valor={valor}

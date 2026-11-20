@@ -4,18 +4,21 @@ import {
   FilaDeLista,
   PantallaDeLista,
 } from '@/components/tarjetas/pantalla-de-lista';
+import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import type { Tarjeta } from '@/lib/api/tarjetas';
 import { textoDeTasa } from '@/lib/tarjetas';
 import { useTarjetas } from '@/lib/use-tarjetas';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 /**
  * "Mis tarjetas" (wireframe de Figma, sin los datos que la API no tiene todavía: cupo, corte, pago y deuda):
- * crea, edita (también la tasa) y elimina tarjetas, y lleva a sus cargos fijos. Solo presenta lo que responde
+ * crea, edita (también la tasa) y elimina tarjetas, y lleva a sus cargos fijos y al avance en efectivo. Solo presenta lo que responde
  * el backend, en el orden que él manda.
  */
 export default function Tarjetas() {
+  const router = useRouter();
   const { cargando, items, fallo, recargar } = useTarjetas();
   // 'nueva' abre el formulario vacío; una tarjeta, el de editarla
   const [hoja, setHoja] = useState<Tarjeta | 'nueva' | null>(null);
@@ -53,6 +56,15 @@ export default function Tarjetas() {
         ))
       )}
       <BotonAgregar texto="+ Agregar tarjeta" onPress={() => setHoja('nueva')} />
+      {items.length > 0 ? (
+        <Button
+          variant="outline"
+          className="min-h-14"
+          onPress={() => router.push('/avance-en-efectivo')}
+        >
+          <Text className="font-semibold">Avance en efectivo</Text>
+        </Button>
+      ) : null}
     </PantallaDeLista>
   );
 }

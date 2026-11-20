@@ -10,12 +10,14 @@ export function FilaMovimiento({
   onPress,
 }: {
   item: TransaccionListada;
-  onPress: () => void;
+  /** Sin ella la fila solo se lee (el dinero recibido no se edita desde aquí). */
+  onPress?: () => void;
 }) {
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={onPress ? 'button' : undefined}
       onPress={onPress}
+      disabled={!onPress}
       className="mb-2 min-h-14 flex-row items-center gap-3 rounded-xl border border-border bg-card px-3 py-2"
     >
       <View

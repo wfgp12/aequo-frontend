@@ -13,7 +13,7 @@ import {
 } from '@/lib/api/transacciones';
 import { fechaDdMmAaaa } from '@/lib/fechas';
 import {
-  AVISO_TARJETA_DE_CREDITO,
+  AVISO_TARJETA_AL_EDITAR,
   opcionesDeMetodo,
   type OpcionDeMetodo,
 } from '@/lib/metodos-de-pago';
@@ -179,7 +179,7 @@ export function HojaEditarMovimiento({ item, onCerrar, onCambio }: Props) {
 
   function elegirMetodo(valor: OpcionDeMetodo['valor']) {
     if (valor === 'TARJETA_CREDITO') {
-      setAvisoMetodo(AVISO_TARJETA_DE_CREDITO);
+      setAvisoMetodo(AVISO_TARJETA_AL_EDITAR);
       return;
     }
     setAvisoMetodo(null);

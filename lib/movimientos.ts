@@ -38,9 +38,14 @@ export function tituloDelMovimiento(item: TransaccionListada) {
   return item.descripcion || item.categoria?.nombre || 'Sin categoría';
 }
 
+/** El dinero recibido (de un avance o un préstamo) no se edita ni se elimina desde Movimientos. */
+export const esDineroRecibido = (item: Pick<TransaccionListada, 'clasificacionFlujo'>) =>
+  item.clasificacionFlujo === 'DINERO_RECIBIDO';
+
 /** Subtítulo: "Categoría · Método"; sin nota, el título ya es la categoría y solo queda el método. */
 export function subtituloDelMovimiento(item: TransaccionListada) {
   const metodo = ETIQUETA_METODO[item.metodoPago];
+  if (esDineroRecibido(item)) return `Dinero recibido · ${metodo}`;
   return item.descripcion && item.categoria ? `${item.categoria.nombre} · ${metodo}` : metodo;
 }
 

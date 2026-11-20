@@ -1,6 +1,8 @@
-import type { CargoFijo, DatosCargo, DatosTarjeta, Tarjeta } from '@/lib/api/tarjetas';
+import { ApiError } from '@/lib/api/client';
+import type { CargoFijo, CuotaPrevia, DatosCargo, DatosTarjeta, Tarjeta } from '@/lib/api/tarjetas';
 import { formatearPesos } from '@/lib/dinero';
 import { esApi, mensajeDeFallo } from '@/lib/errores';
+import { mesActual, mesEnLetras } from '@/lib/fechas';
 import { fraccionAPorcentaje, porcentajeAFraccion } from '@/lib/tasa';
 import type { Fallo } from '@/lib/use-lista-remota';
 import type { Lectura } from '@/lib/use-guardar-hoja';
@@ -87,7 +89,7 @@ export const mensajeAlGuardarCargo = (e: unknown, editando: boolean) => {
 
 export const mensajeAlEliminarTarjeta = (e: unknown) =>
   esApi(e, 409)
-    ? 'Esta tarjeta ya tiene pagos registrados y no se puede eliminar.'
+    ? 'Esta tarjeta ya tiene compras o pagos registrados y no se puede eliminar.'
     : mensajeDeFallo(e, 'No pudimos eliminar tu tarjeta. Inténtalo de nuevo en unos minutos.');
 
 export const mensajeAlEliminarCargo = (e: unknown) =>
@@ -97,6 +99,82 @@ export const fallosDeTarjetas = (e: unknown): Fallo => ({
   mensaje: mensajeDeFallo(e, 'No pudimos cargar tus tarjetas. Inténtalo de nuevo en unos minutos.'),
   reintentar: true,
 });
+
+// --- Compra con tarjeta y avance en efectivo: lo que se elige, se muestra y se explica ---
+
+export const MAX_CUOTAS = 60;
+export const NOTA_DE_LA_CUOTA =
+  'Estimado con la tasa de tu tarjeta. El valor real de tu extracto puede variar.';
+export const ACLARACION_DINERO_RECIBIDO =
+  'Este dinero entra como dinero recibido: no cuenta como ingreso propio.';
+const TARJETA_YA_NO_EXISTE = 'Esta tarjeta ya no existe. Vuelve atrás y elige otra.';
+
+/** Cuántas cuotas y desde qué mes se paga la primera (YYYY-MM). `otra`: el número se escribe en vez de elegirse. */
+export type EleccionDeCuotas = { cuotas: string; otra: boolean; primerPago: string };
+
+/** Lo que el usuario va eligiendo de la tarjeta, más la estimación vigente que el backend dio para ello. */
+export type EleccionDeTarjeta = EleccionDeCuotas & {
+  tarjeta: Tarjeta | null;
+  previa: CuotaPrevia | null;
+};
+
+/** Una cuota y el mes de hoy como primer pago; el usuario lo cambia. */
+export const eleccionInicial = (): EleccionDeTarjeta => ({
+  tarjeta: null,
+  cuotas: '1',
+  otra: false,
+  primerPago: mesActual(),
+  previa: null,
+});
+
+/** Las cuotas escritas (solo dígitos) como número de 1 a 60; null si falta o se sale del rango. */
+export function leerCuotas(texto: string): number | null {
+  const n = Number(texto);
+  return n >= 1 && n <= MAX_CUOTAS ? n : null;
+}
+
+/** "1 cuota", "12 cuotas" */
+export const textoDeCuotas = (cuotas: number) => (cuotas === 1 ? '1 cuota' : `${cuotas} cuotas`);
+
+/** "en 1 cuota de $ 80.000" o "a 12 cuotas de $ 119.802": la cuota se redondea al peso solo al mostrarla. */
+export const textoDeCuotaDe = (cuotas: number, cuota: number) =>
+  `${cuotas === 1 ? 'en' : 'a'} ${textoDeCuotas(cuotas)} de $ ${formatearPesos(cuota)}`;
+
+/** Las filas del resumen que son de la tarjeta; todo sale del backend, el mes del último pago incluido. */
+export function filasDeTarjeta({ tarjeta, cuotas, primerPago, previa }: EleccionDeTarjeta) {
+  if (!tarjeta || !previa) return [];
+  return [
+    { etiqueta: 'Tarjeta', valor: tarjeta.nombre },
+    { etiqueta: 'Cuotas', valor: textoDeCuotas(Number(cuotas)) },
+    { etiqueta: 'Cuota estimada', valor: `$ ${formatearPesos(previa.cuota)}` },
+    { etiqueta: 'Primer pago', valor: mesEnLetras(primerPago) },
+    { etiqueta: 'Último pago', valor: mesEnLetras(previa.mesUltimoPago) },
+  ];
+}
+
+const noEncontrado = (e: unknown, mensaje: string) =>
+  e instanceof ApiError && e.status === 404 && e.message === mensaje;
+
+/** El 409 es el primer intento todavía en proceso con la misma clave; el 404 distingue qué ya no existe. */
+export function mensajeAlGuardarCompra(e: unknown, cosa: 'compra' | 'avance') {
+  if (esApi(e, 409)) {
+    return `Tu ${cosa} todavía se está guardando. Espera unos segundos e inténtalo de nuevo.`;
+  }
+  if (noEncontrado(e, 'Tarjeta no encontrada')) return TARJETA_YA_NO_EXISTE;
+  if (noEncontrado(e, 'Categoría no encontrada')) {
+    return 'Esta categoría ya no existe. Vuelve atrás y elige otra.';
+  }
+  return mensajeDeFallo(e, `No pudimos guardar tu ${cosa}. Revisa los datos e inténtalo de nuevo.`);
+}
+
+/** Repetir la consulta no ayuda si la tarjeta ya no existe; en los demás fallos sí. */
+export const fallosDeCuotaPrevia = (e: unknown): Fallo =>
+  esApi(e, 404)
+    ? { mensaje: TARJETA_YA_NO_EXISTE, reintentar: false }
+    : {
+        mensaje: mensajeDeFallo(e, 'No pudimos calcular tu cuota. Inténtalo de nuevo.'),
+        reintentar: true,
+      };
 
 export const fallosDeCargos = (e: unknown): Fallo =>
   esApi(e, 404)
