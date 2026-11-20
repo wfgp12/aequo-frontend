@@ -11,7 +11,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 **Fuera de este paquete (queda anotado, no se prueba aquí):**
 - El recuadro "Deuda total en tarjetas", la deuda por fila y "Corte … · Pago …": sin datos en la API (decisión de arriba). La deuda llega con 5.3.
 - El "Detalle de tarjeta" (deuda, cupo disponible, próximo pago, cuotas pendientes, "Marcar como pagada"): paquete 5.3.3. Por ahora tocar una fila abre el formulario de editar; el detalle lo reemplazará después.
-- El registro de compras con tarjeta, cuotas y avance en efectivo: paquete 5.2.4. La opción "Tarjeta de crédito" del registro de movimientos no cambia aquí.
+- ~~El registro de compras con tarjeta, cuotas y avance en efectivo~~: ya no está pendiente, lo cubre el paquete 5.2.4 (`05-compra-con-tarjeta.md`). Listar, editar y eliminar compras y avances sigue fuera.
 - La versión de escritorio (tabla y panel lateral, 1280 px), el modal de confirmar eliminación de 1280 px, la barra de navegación inferior y el bottom sheet "Más": no existen todavía. La entrada es un botón en `app/index.tsx`, como "Reportes" y "Meta de ahorro".
 - Un interruptor "Activo" directamente en la lista de cargos: activar y desactivar se hace solo desde el formulario del cargo (decisión más abajo).
 - Ver o editar la cuota única de compras ya hechas: `cuotaUnicaSinInteres` y la tasa solo afectan compras futuras y eso lo guarda el backend; aquí solo se explica con una nota (CA-RF24-F30).
@@ -26,7 +26,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 - `POST /tarjetas` `{ nombre, tasaEA, cuotaUnicaSinInteres? }` con `Idempotency-Key` → `201` con la tarjeta; `400`; `409` "Ya existe una tarjeta con ese nombre"; `422` (misma clave con otro cuerpo).
 - `GET /tarjetas` → `200 { items: [tarjeta] }`, ya ordenada por nombre sin distinguir mayúsculas, sin paginación; `[]` si no hay.
 - `PATCH /tarjetas/:id` con al menos uno de `nombre`, `tasaEA`, `cuotaUnicaSinInteres` → `200` con la tarjeta. **Aquí se cambia la tasa (RF-25)**; no hay ruta aparte. `404` "Tarjeta no encontrada"; `409` por nombre repetido; `400`. Sin `Idempotency-Key`.
-- `DELETE /tarjetas/:id` → `204` sin cuerpo; borra en cascada los cargos fijos de la tarjeta. `409` "No se puede eliminar una tarjeta que ya tiene pagos registrados" (no borra nada); `404`.
+- `DELETE /tarjetas/:id` → `204` sin cuerpo; borra en cascada los cargos fijos de la tarjeta. `409` "No se puede eliminar una tarjeta que ya tiene pagos o compras registrados" (no borra nada; antes solo decía "pagos"); `404`.
 - `POST /tarjetas/:tarjetaId/cargos` `{ descripcion, valor, activo? }` con `Idempotency-Key` → `201` con el cargo; `404` "Tarjeta no encontrada"; `400`; `422`.
 - `GET /tarjetas/:tarjetaId/cargos` (opcional `?activo=true|false`) → `200 { items: [cargo] }` por fecha de creación ascendente; `404` si la tarjeta no existe.
 - `PATCH /tarjetas/:tarjetaId/cargos/:id` con al menos uno de `descripcion`, `valor`, `activo` → `200` con el cargo. **Activar y desactivar es un `PATCH` de `activo`.** `404` "Cargo fijo no encontrado"; `400`. Sin clave.
@@ -125,7 +125,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 
 - **Dado** que el backend responde con "Amex" (tasa `0.2421`) y "Visa Bancolombia" (tasa `0.2921`), en ese orden
 - **Cuando** termina de cargar
-- **Entonces** ve una fila por tarjeta, en el mismo orden en que llegaron, cada una con su nombre ("Amex", "Visa Bancolombia") y su tasa ("Tasa 24,21 % E.A.", "Tasa 29,21 % E.A."), y al final el botón "+ Agregar tarjeta".
+- **Entonces** ve una fila por tarjeta, en el mismo orden en que llegaron, cada una con su nombre ("Amex", "Visa Bancolombia") y su tasa ("Tasa 24,21 % E.A.", "Tasa 29,21 % E.A."), y al final el botón "+ Agregar tarjeta" y, debajo, el botón "Avance en efectivo" (agregado por el paquete 5.2.4, CA-RF28-F01).
 - **Y** no ve "Deuda total en tarjetas", ni "deuda" en las filas, ni "Corte" ni "Pago" con días (la API no tiene esos datos).
 
 > Decisión (del desarrollador, ya tomada): sin deuda, corte ni pago hasta que llegue la proyección (5.3). Es una desviación del Figma. Decisión (propuesta): la fila dice "Tasa 29,21 % E.A."; la pantalla no reordena las tarjetas (el backend ya las manda por nombre sin distinguir mayúsculas).
@@ -418,9 +418,9 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 
 ### CA-RF24-F44 — Tarjeta con pagos registrados (409): lo explica y la tarjeta sigue
 
-- **Dado** que el backend responde `409` ("No se puede eliminar una tarjeta que ya tiene pagos registrados")
+- **Dado** que el backend responde `409` ("No se puede eliminar una tarjeta que ya tiene compras registradas" o el mensaje que sea: la pantalla muestra el mismo texto)
 - **Cuando** el usuario ve el resultado
-- **Entonces** ve, dentro del diálogo, "Esta tarjeta ya tiene pagos registrados y no se puede eliminar.", el diálogo sigue abierto ("Cancelar" lo cierra) y la tarjeta sigue en la lista.
+- **Entonces** ve, dentro del diálogo, "Esta tarjeta ya tiene compras o pagos registrados y no se puede eliminar.", el diálogo sigue abierto ("Cancelar" lo cierra) y la tarjeta sigue en la lista.
 
 > Decisión: texto propuesto (RNF-04). No dice cómo resolverlo: hoy desde Movimientos no se pueden eliminar los pagos de tarjeta (CA-RF08-24), así que no se le da al usuario una salida que no existe. Ver dudas en el reporte.
 

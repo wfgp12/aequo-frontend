@@ -21,8 +21,10 @@ export type NuevaTransaccion = {
 
 export type Transaccion = Required<NuevaTransaccion> & {
   id: string;
-  clasificacionFlujo: 'ORDINARIO';
+  /** DINERO_RECIBIDO: entra por un avance o un préstamo y no cuenta como ingreso propio (ADR-014). */
+  clasificacionFlujo: 'ORDINARIO' | 'DINERO_RECIBIDO';
   creadaEn: string;
+  /** null en el dinero recibido (el avance en efectivo), que no tiene categoría (y su `categoriaId` llega null). */
   categoria?: Pick<Categoria, 'id' | 'nombre' | 'tipo' | 'esPredeterminada'> | null;
 };
 

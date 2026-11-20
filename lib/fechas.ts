@@ -75,7 +75,12 @@ export function mesCorto(periodo: string) {
   return MESES_CORTOS[Number(periodo.slice(5, 7)) - 1];
 }
 
-/** Retrocede `cantidad` meses un mes YYYY-MM, cruzando el año si hace falta. */
+/** "2026-12" → "diciembre 2026": el mes en minúscula con su año. */
+export function mesEnLetras(periodo: string) {
+  return `${MESES[Number(periodo.slice(5, 7)) - 1]} ${periodo.slice(0, 4)}`;
+}
+
+/** Retrocede `cantidad` meses un mes YYYY-MM, cruzando el año si hace falta (negativo: avanza). */
 export function restarMeses(periodo: string, cantidad: number) {
   const [anio, mes] = periodo.split('-').map(Number);
   const indice = anio * 12 + (mes - 1) - cantidad;

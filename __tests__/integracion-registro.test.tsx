@@ -42,6 +42,15 @@ const otrosIngresos = {
   movimientos: 0,
 };
 
+const tarjeta = {
+  id: 'tj1',
+  nombre: 'Visa Bancolombia',
+  tasaEA: 0.2921,
+  cuotaUnicaSinInteres: false,
+  creadaEn: '2026-09-17T15:00:00.000Z',
+  actualizadaEn: '2026-09-17T15:00:00.000Z',
+};
+
 function respuesta(status: number, body: unknown) {
   return { ok: status >= 200 && status < 300, status, statusText: 'x', json: async () => body };
 }
@@ -53,6 +62,9 @@ function backend(alCrear: (cuerpo: Record<string, unknown>) => unknown = () => r
   fetchMock.mockImplementation(async (url: string, init: Init) => {
     if (url.includes('/categorias?tipo=EGRESO')) return respuesta(200, { items: [alimentacion] });
     if (url.includes('/categorias?tipo=INGRESO')) return respuesta(200, { items: [otrosIngresos] });
+    if (url.endsWith('/tarjetas') && init.method === 'GET') {
+      return respuesta(200, { items: [tarjeta] });
+    }
     if (url.endsWith('/transacciones') && init.method === 'POST') {
       return alCrear(JSON.parse(init.body as string));
     }
@@ -205,7 +217,7 @@ describe('Registro paso a paso (integración)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('la tarjeta de crédito no avanza y no se envía al backend', async () => {
+  it('CA-RF26-F01 la tarjeta de crédito lleva a elegir la tarjeta, sin aviso y sin enviar ningún movimiento', async () => {
     backend();
     await abrirHome();
     await fireEvent.press(await screen.findByText('Registrar egreso'));
@@ -214,8 +226,10 @@ describe('Registro paso a paso (integración)', () => {
 
     await fireEvent.press(await screen.findByLabelText('Tarjeta crédito'));
 
+    expect(await screen.findByText('¿Con cuál tarjeta fue?')).toBeOnTheScreen();
     expect(screen.getByText('3 de 5')).toBeOnTheScreen();
-    expect(screen.getByText(/se podrán registrar muy pronto/)).toBeOnTheScreen();
+    expect(screen.queryByText(/se podrán registrar muy pronto/)).toBeNull();
+    expect(screen.queryByText('¿Cuándo fue?')).toBeNull();
     expect(creaciones()).toHaveLength(0);
   });
 

@@ -87,9 +87,9 @@ Cubre la segunda parte del paquete **2.2.5** (RF-08): editar cualquier campo de 
 
 - **Dado** la hoja abierta
 - **Cuando** el usuario abre el campo "Método de pago"
-- **Entonces** puede elegir "Efectivo", "Tarjeta débito" y "Transferencia"; al tocar "Tarjeta crédito" no se elige y ve el mismo aviso que en el registro ("…se podrán registrar muy pronto…").
+- **Entonces** puede elegir "Efectivo", "Tarjeta débito" y "Transferencia"; al tocar "Tarjeta crédito" no se elige y ve el aviso "Las compras con tarjeta de crédito se registran desde «Registrar egreso». Aquí elige otro método." (cambiado por el paquete 5.2.4, decisión G2 de `05-compra-con-tarjeta.md`; antes decía "…se podrán registrar muy pronto…").
 
-> Propuesta: reutilizar el mismo comportamiento del paso 3 del registro mientras las tarjetas no existan.
+> Propuesta: la tarjeta no se elige aquí porque una compra con tarjeta no es un movimiento: habría que eliminarlo y registrarla de nuevo desde el registro.
 
 ---
 
@@ -230,7 +230,7 @@ Cubre la segunda parte del paquete **2.2.5** (RF-08): editar cualquier campo de 
 ### CA-RF08-27 — Tocar "Tarjeta crédito" no impide guardar el resto de los cambios
 
 - **Dado** la hoja abierta con un movimiento pagado con débito, y el usuario cambió la nota
-- **Cuando** abre "Método de pago", toca "Tarjeta crédito" (ve el aviso), vuelve a tocar el campo "Método de pago" para cerrar la lista y toca "Guardar cambios"
+- **Cuando** abre "Método de pago", toca "Tarjeta crédito" (ve el aviso de CA-RF08-10, con el texto nuevo del paquete 5.2.4), vuelve a tocar el campo "Método de pago" para cerrar la lista y toca "Guardar cambios"
 - **Entonces** el método sigue siendo "Tarjeta débito", se envía un solo `PATCH` con únicamente la nota nueva (sin `metodoPago`), la hoja se cierra y la lista muestra el cambio.
 - **Y** el aviso de la tarjeta ya no se ve una vez cerrada la lista de métodos.
 - **Y** si el usuario solo tocó "Tarjeta crédito" y no cambió nada más, "Guardar cambios" no llama al backend y cierra en silencio, igual que CA-RF08-08.
@@ -241,7 +241,7 @@ Cubre la segunda parte del paquete **2.2.5** (RF-08): editar cualquier campo de 
 
 ## Pendientes de decisión (sin prueba hasta que se definan)
 
-> Pendiente de decisión: **movimientos que no se pueden editar.** Los que vienen de tarjetas o deudas dan `409`. Falta definir si la lista los distingue (por ejemplo, sin el gesto de tocar) o si se deja que el usuario intente y vea el aviso de CA-RF08-17.
+> Resuelto por el paquete 5.2.4 (CA-RF28-F15, decisión G3 de `05-compra-con-tarjeta.md`): los movimientos de dinero recibido no abren la hoja de edición y se ven como "Dinero recibido · Método". CA-RF08-17 y CA-RF08-24 (el `409`) siguen valiendo como respaldo.
 
 > Pendiente de decisión: **posición en la lista tras guardar o eliminar.** No está definido si la lista se vuelve a cargar desde el principio o solo se actualiza la fila; las pruebas solo verifican lo que el usuario ve, no cuál de las dos formas se usa.
 

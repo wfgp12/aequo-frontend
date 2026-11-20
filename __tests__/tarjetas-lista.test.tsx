@@ -186,6 +186,9 @@ describe('Mis tarjetas: lo que se ve según haya o no tarjetas', () => {
     const texto = textoDePantalla();
     expect(texto.indexOf('Amex')).toBeLessThan(texto.indexOf('Visa Bancolombia'));
     expect(texto.indexOf('Visa Bancolombia')).toBeLessThan(texto.indexOf('+ Agregar tarjeta'));
+    // Desde el paquete 5.2.4: debajo de "+ Agregar tarjeta" está el botón del avance en efectivo (CA-RF28-F01)
+    expect(boton('Avance en efectivo')).toBeOnTheScreen();
+    expect(texto.indexOf('+ Agregar tarjeta')).toBeLessThan(texto.indexOf('Avance en efectivo'));
     expect(screen.queryByText(TEXTO.vacio)).toBeNull();
   });
 

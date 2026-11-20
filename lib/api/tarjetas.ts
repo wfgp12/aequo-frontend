@@ -23,8 +23,46 @@ export type CargoFijo = {
   actualizadaEn: string;
 };
 
+/** Una compra a cuotas con tarjeta, o un avance en efectivo (`tipo` AVANCE, sin categoría). */
+export type CompraCredito = {
+  id: string;
+  tarjetaId: string;
+  categoriaId: string | null;
+  tipo: 'COMPRA' | 'AVANCE';
+  descripcion: string;
+  /** Pesos. */
+  valor: number;
+  cuotas: number;
+  /** YYYY-MM-DD */
+  fecha: string;
+  /** YYYY-MM */
+  primerPago: string;
+  /** YYYY-MM, calculado por el backend. */
+  mesUltimoPago: string;
+  /** Fracción de 0 a 1, la tasa que se aplicó al guardar. */
+  tasaEAAplicada: number;
+  cuotaUnicaSinInteres: boolean;
+  /** Pesos, sin redondear: se redondea al peso solo al mostrarla. */
+  cuota: number;
+  creadaEn: string;
+  actualizadaEn: string;
+};
+
+/** Lo que responde GET /tarjetas/:tarjetaId/cuota: la cuota estimada antes de guardar. */
+export type CuotaPrevia = Pick<
+  CompraCredito,
+  'cuota' | 'mesUltimoPago' | 'tasaEAAplicada' | 'cuotaUnicaSinInteres'
+>;
+
+export type ConsultaCuota = Pick<CompraCredito, 'valor' | 'cuotas' | 'primerPago'>;
+
 export type DatosTarjeta = Pick<Tarjeta, 'nombre' | 'tasaEA' | 'cuotaUnicaSinInteres'>;
 export type DatosCargo = Pick<CargoFijo, 'descripcion' | 'valor' | 'activo'>;
+/** Cuerpo de POST …/compras: la descripción es obligatoria (1 a 200 caracteres). */
+export type DatosCompra = ConsultaCuota &
+  Pick<CompraCredito, 'descripcion'> & { categoriaId: string; fecha?: string };
+/** Cuerpo de POST …/avances: sin categoría; la descripción es opcional. */
+export type DatosAvance = ConsultaCuota & { fecha?: string; descripcion?: string };
 
 const rutaCargos = (tarjetaId: string) => `/tarjetas/${tarjetaId}/cargos`;
 
@@ -48,7 +86,7 @@ export function actualizarTarjeta(id: string, cambios: Partial<DatosTarjeta>) {
   return requestAutenticado<Tarjeta>(`/tarjetas/${id}`, { method: 'PATCH', body: cambios });
 }
 
-/** DELETE /tarjetas/:id: responde 204 sin cuerpo y borra también sus cargos fijos (409 si ya tiene pagos). */
+/** DELETE /tarjetas/:id: 204 sin cuerpo; borra también sus cargos fijos (409 si ya tiene pagos o compras). */
 export async function eliminarTarjeta(id: string) {
   await requestAutenticado<null>(`/tarjetas/${id}`, { method: 'DELETE' });
 }
@@ -79,4 +117,33 @@ export function actualizarCargo(tarjetaId: string, id: string, cambios: Partial<
 /** DELETE …/cargos/:id: responde 204 sin cuerpo. */
 export async function eliminarCargo(tarjetaId: string, id: string) {
   await requestAutenticado<null>(`${rutaCargos(tarjetaId)}/${id}`, { method: 'DELETE' });
+}
+
+/** POST /tarjetas/:tarjetaId/compras, con clave de idempotencia: la misma clave en cada reintento. */
+export function registrarCompra(tarjetaId: string, datos: DatosCompra, claveIdempotencia: string) {
+  return requestAutenticado<CompraCredito>(`/tarjetas/${tarjetaId}/compras`, {
+    method: 'POST',
+    body: datos,
+    claveIdempotencia,
+  });
+}
+
+/** POST /tarjetas/:tarjetaId/avances, con clave de idempotencia. Además crea el dinero recibido en efectivo. */
+export function registrarAvance(tarjetaId: string, datos: DatosAvance, claveIdempotencia: string) {
+  return requestAutenticado<CompraCredito>(`/tarjetas/${tarjetaId}/avances`, {
+    method: 'POST',
+    body: datos,
+    claveIdempotencia,
+  });
+}
+
+/** GET /tarjetas/:tarjetaId/cuota: vista previa sin efectos (compras y avances), sin clave de idempotencia. */
+export function obtenerCuotaPrevia(tarjetaId: string, consulta: ConsultaCuota) {
+  const { valor, cuotas, primerPago } = consulta;
+  const parametros = new URLSearchParams({
+    valor: String(valor),
+    cuotas: String(cuotas),
+    primerPago,
+  });
+  return requestAutenticado<CuotaPrevia>(`/tarjetas/${tarjetaId}/cuota?${parametros}`);
 }

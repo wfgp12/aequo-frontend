@@ -1,25 +1,30 @@
+import { Confirmacion } from '@/components/registro/confirmacion';
 import { EncabezadoRegistro } from '@/components/registro/encabezado';
 import { PasoCategoria } from '@/components/registro/paso-categoria';
+import { PasoCuotas } from '@/components/registro/paso-cuotas';
 import { PasoDescripcion } from '@/components/registro/paso-descripcion';
+import { PasoElegirTarjeta } from '@/components/registro/paso-elegir-tarjeta';
 import { PasoFecha } from '@/components/registro/paso-fecha';
 import { PasoMetodoPago } from '@/components/registro/paso-metodo-pago';
 import { PasoValor } from '@/components/registro/paso-valor';
-import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/text';
 import type { Categoria, TipoMovimiento } from '@/lib/api/categorias';
 import { ApiError, NetworkError } from '@/lib/api/client';
-import { crearTransaccion, type MetodoPago, type NuevaTransaccion } from '@/lib/api/transacciones';
+import { registrarCompra, type CompraCredito, type DatosCompra } from '@/lib/api/tarjetas';
+import { crearTransaccion, type NuevaTransaccion } from '@/lib/api/transacciones';
 import { formatearPesos } from '@/lib/dinero';
 import { hoy } from '@/lib/fechas';
-import { randomUUID } from 'expo-crypto';
-import { useRef, useState } from 'react';
-import { View } from 'react-native';
-
-const ETIQUETA_METODO: Record<MetodoPago, string> = {
-  EFECTIVO: 'Efectivo',
-  DEBITO: 'Tarjeta débito',
-  TRANSFERENCIA: 'Transferencia',
-};
+import type { OpcionDeMetodo } from '@/lib/metodos-de-pago';
+import { ETIQUETA_METODO } from '@/lib/movimientos';
+import {
+  eleccionInicial,
+  filasDeTarjeta,
+  mensajeAlGuardarCompra,
+  NOTA_DE_LA_CUOTA,
+  textoDeCuotaDe,
+  type EleccionDeTarjeta,
+} from '@/lib/tarjetas';
+import { useGuardarRegistro } from '@/lib/use-guardar-registro';
+import { useState, type ReactNode } from 'react';
 
 // Lenguaje cotidiano, sin jerga técnica (RNF-04)
 function mensajeDeError(e: unknown) {
@@ -33,197 +38,227 @@ function mensajeDeError(e: unknown) {
   return 'No pudimos guardar tu movimiento. Revisa los datos e inténtalo de nuevo.';
 }
 
+type Paso = 'valor' | 'categoria' | 'metodo' | 'tarjeta' | 'cuotas' | 'fecha' | 'nota';
+
+// La tarjeta y las cuotas son la continuación del método de pago: la barra de cinco tramos no cambia
+const NUMERO_DE_PASO: Record<Paso, number> = {
+  valor: 1,
+  categoria: 2,
+  metodo: 3,
+  tarjeta: 3,
+  cuotas: 3,
+  fecha: 4,
+  nota: 5,
+};
+
 type Datos = {
   valor: string;
   categoria: Categoria | null;
-  metodo: MetodoPago | null;
+  metodo: OpcionDeMetodo['valor'] | null;
   fecha: string;
   descripcion: string;
+  eleccion: EleccionDeTarjeta;
 };
 
 type Props = { tipo: TipoMovimiento; onCerrar: () => void };
 
 /** Estado y pasos del registro guiado. El tipo (ingreso o egreso) lo fija el botón con el que se entró. */
 export function FlujoRegistro({ tipo, onCerrar }: Props) {
-  const [paso, setPaso] = useState(1);
+  const [paso, setPaso] = useState<Paso>('valor');
   const [datos, setDatos] = useState<Datos>({
     valor: '',
     categoria: null,
     metodo: null,
     fecha: hoy(),
     descripcion: '',
+    eleccion: eleccionInicial(),
   });
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [guardado, setGuardado] = useState(false);
-  // Bandera síncrona: dos toques muy rápidos pueden entrar antes de que se repinte el botón deshabilitado
-  const enVuelo = useRef(false);
-  // Clave de idempotencia de la acción en curso: se reutiliza al reintentar y se renueva si cambian los datos
-  const intento = useRef<{ huella: string; clave: string } | null>(null);
-
-  function claveDe(nueva: NuevaTransaccion) {
-    const huella = JSON.stringify(nueva);
-    if (intento.current?.huella !== huella) intento.current = { huella, clave: randomUUID() };
-    return intento.current.clave;
-  }
+  // `compra` es la respuesta del guardado de una compra con tarjeta; null si se guardó un movimiento
+  const { guardando, error, guardado, guardar } = useGuardarRegistro<{
+    compra: CompraCredito | null;
+  }>();
 
   const cambiar = (parcial: Partial<Datos>) => setDatos((d) => ({ ...d, ...parcial }));
-  const elegir = (parcial: Partial<Datos>, siguiente: number) => {
+  const cambiarEleccion = (parcial: Partial<EleccionDeTarjeta>) =>
+    setDatos((d) => ({ ...d, eleccion: { ...d.eleccion, ...parcial } }));
+  const elegir = (parcial: Partial<Datos>, siguiente: Paso) => {
     cambiar(parcial);
     setPaso(siguiente);
   };
+  const conTarjeta = datos.metodo === 'TARJETA_CREDITO';
 
-  async function guardar() {
-    const { categoria, metodo, valor, fecha, descripcion } = datos;
-    if (!categoria || !metodo || enVuelo.current) return;
-    enVuelo.current = true;
-    setError(null);
-    setGuardando(true);
-    try {
-      const nueva: NuevaTransaccion = {
-        tipo,
-        monto: Number(valor),
-        fecha,
+  async function guardarRegistro() {
+    const { categoria, metodo, valor, fecha, descripcion, eleccion } = datos;
+    if (!categoria || !metodo) return;
+    const nota = descripcion.trim();
+    if (metodo === 'TARJETA_CREDITO') {
+      if (!eleccion.tarjeta) return;
+      const tarjetaId = eleccion.tarjeta.id;
+      // Sin nota, la descripción es la categoría: el backend exige una
+      const compra: DatosCompra = {
+        descripcion: nota || categoria.nombre,
         categoriaId: categoria.id,
-        metodoPago: metodo,
-        descripcion: descripcion.trim() || undefined,
+        valor: Number(valor),
+        cuotas: Number(eleccion.cuotas),
+        primerPago: eleccion.primerPago,
+        fecha,
       };
-      await crearTransaccion(nueva, claveDe(nueva));
-      setGuardado(true);
-    } catch (e) {
-      // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
-      setError(mensajeDeError(e));
-    } finally {
-      enVuelo.current = false;
-      setGuardando(false);
+      await guardar(
+        [tarjetaId, compra],
+        async (clave) => ({ compra: await registrarCompra(tarjetaId, compra, clave) }),
+        (e) => mensajeAlGuardarCompra(e, 'compra'),
+      );
+      return;
     }
+    const nueva: NuevaTransaccion = {
+      tipo,
+      monto: Number(valor),
+      fecha,
+      categoriaId: categoria.id,
+      metodoPago: metodo,
+      descripcion: nota || undefined,
+    };
+    await guardar(
+      nueva,
+      async (clave) => {
+        await crearTransaccion(nueva, clave);
+        return { compra: null };
+      },
+      mensajeDeError,
+    );
   }
 
-  if (guardado) return <Confirmacion tipo={tipo} datos={datos} onCerrar={onCerrar} />;
+  if (guardado) {
+    const { valor, categoria, eleccion } = datos;
+    const { compra } = guardado;
+    return (
+      <Confirmacion
+        mensaje={
+          compra
+            ? `Registramos tu compra de $ ${formatearPesos(Number(valor))} en ${categoria?.nombre} con ${eleccion.tarjeta?.nombre}, ${textoDeCuotaDe(compra.cuotas, compra.cuota)}.`
+            : `Registramos tu ${tipo === 'EGRESO' ? 'egreso' : 'ingreso'} de $ ${formatearPesos(Number(valor))} en ${categoria?.nombre}.`
+        }
+        onCerrar={onCerrar}
+      />
+    );
+  }
 
   return (
     <>
       <EncabezadoRegistro
-        titulo={tipo === 'EGRESO' ? 'Nuevo egreso' : 'Nuevo ingreso'}
-        paso={paso}
+        titulo={
+          paso === 'tarjeta' || paso === 'cuotas'
+            ? 'Tarjeta de crédito'
+            : tipo === 'EGRESO'
+              ? 'Nuevo egreso'
+              : 'Nuevo ingreso'
+        }
+        paso={NUMERO_DE_PASO[paso]}
         onCerrar={onCerrar}
       />
-      <PasoActual
-        paso={paso}
-        tipo={tipo}
-        datos={datos}
-        guardando={guardando}
-        error={error}
-        cambiar={cambiar}
-        elegir={elegir}
-        irA={setPaso}
-        guardar={() => {
-          void guardar();
-        }}
-      />
+      {PASOS[paso]({
+        tipo,
+        datos,
+        conTarjeta,
+        guardando,
+        error,
+        cambiar,
+        cambiarEleccion,
+        elegir,
+        irA: setPaso,
+        guardar: () => {
+          void guardarRegistro();
+        },
+      })}
     </>
   );
 }
 
-type PasoActualProps = {
-  paso: number;
+type PasoProps = {
   tipo: TipoMovimiento;
   datos: Datos;
+  conTarjeta: boolean;
   guardando: boolean;
   error: string | null;
   cambiar: (parcial: Partial<Datos>) => void;
-  elegir: (parcial: Partial<Datos>, siguiente: number) => void;
-  irA: (paso: number) => void;
+  cambiarEleccion: (parcial: Partial<EleccionDeTarjeta>) => void;
+  elegir: (parcial: Partial<Datos>, siguiente: Paso) => void;
+  irA: (paso: Paso) => void;
   guardar: () => void;
 };
 
-function PasoActual({
-  paso,
-  tipo,
-  datos,
-  guardando,
-  error,
-  cambiar,
-  elegir,
-  irA,
-  guardar,
-}: PasoActualProps) {
-  switch (paso) {
-    case 1:
-      return (
-        <PasoValor
-          tipo={tipo}
-          valor={datos.valor}
-          onCambiar={(valor) => cambiar({ valor })}
-          onSiguiente={() => irA(2)}
-        />
-      );
-    case 2:
-      return (
-        <PasoCategoria
-          tipo={tipo}
-          onElegir={(categoria) => elegir({ categoria }, 3)}
-          onAtras={() => irA(1)}
-        />
-      );
-    case 3:
-      return (
-        <PasoMetodoPago
-          tipo={tipo}
-          onElegir={(metodo) => elegir({ metodo }, 4)}
-          onAtras={() => irA(2)}
-        />
-      );
-    case 4:
-      return (
-        <PasoFecha
-          fecha={datos.fecha}
-          onCambiar={(fecha) => cambiar({ fecha })}
-          onSiguiente={() => irA(5)}
-          onAtras={() => irA(3)}
-        />
-      );
-    default:
-      return (
-        <PasoDescripcion
-          descripcion={datos.descripcion}
-          onCambiar={(descripcion) => cambiar({ descripcion })}
-          resumen={{
-            monto: Number(datos.valor),
-            categoria: datos.categoria?.nombre ?? '',
-            metodo: datos.metodo ? ETIQUETA_METODO[datos.metodo] : '',
-            fecha: datos.fecha,
-          }}
-          guardando={guardando}
-          error={error}
-          onAtras={() => irA(4)}
-          onGuardar={guardar}
-        />
-      );
-  }
-}
-
-function Confirmacion({
-  tipo,
-  datos,
-  onCerrar,
-}: {
-  tipo: TipoMovimiento;
-  datos: Datos;
-  onCerrar: () => void;
-}) {
-  return (
-    <View className="flex-1">
-      <View className="flex-1 items-center justify-center gap-3">
-        <Text className="text-2xl font-semibold">¡Listo!</Text>
-        <Text variant="muted" className="text-center">
-          Registramos tu {tipo === 'EGRESO' ? 'egreso' : 'ingreso'} de ${' '}
-          {formatearPesos(Number(datos.valor))} en {datos.categoria?.nombre}.
-        </Text>
-      </View>
-      <Button className="h-[50px] w-full" onPress={onCerrar}>
-        <Text className="font-semibold">Listo</Text>
-      </Button>
-    </View>
-  );
-}
+// Cada paso dibuja su pantalla y dice a cuál se va hacia adelante y hacia atrás
+const PASOS: Record<Paso, (p: PasoProps) => ReactNode> = {
+  valor: ({ tipo, datos, cambiar, irA }) => (
+    <PasoValor
+      tipo={tipo}
+      valor={datos.valor}
+      onCambiar={(valor) => cambiar({ valor })}
+      onSiguiente={() => irA('categoria')}
+    />
+  ),
+  categoria: ({ tipo, elegir, irA }) => (
+    <PasoCategoria
+      tipo={tipo}
+      onElegir={(categoria) => elegir({ categoria }, 'metodo')}
+      onAtras={() => irA('valor')}
+    />
+  ),
+  metodo: ({ tipo, elegir, irA }) => (
+    <PasoMetodoPago
+      tipo={tipo}
+      onElegir={(metodo) => elegir({ metodo }, metodo === 'TARJETA_CREDITO' ? 'tarjeta' : 'fecha')}
+      onAtras={() => irA('categoria')}
+    />
+  ),
+  tarjeta: ({ cambiarEleccion, irA }) => (
+    <PasoElegirTarjeta
+      pregunta="¿Con cuál tarjeta fue?"
+      onElegir={(tarjeta) => {
+        cambiarEleccion({ tarjeta });
+        irA('cuotas');
+      }}
+      onAtras={() => irA('metodo')}
+    />
+  ),
+  cuotas: ({ datos, cambiarEleccion, irA }) =>
+    datos.eleccion.tarjeta ? (
+      <PasoCuotas
+        tarjeta={datos.eleccion.tarjeta}
+        valor={Number(datos.valor)}
+        eleccion={datos.eleccion}
+        onCambiar={cambiarEleccion}
+        onSiguiente={(previa) => {
+          cambiarEleccion({ previa });
+          irA('fecha');
+        }}
+        onAtras={() => irA('tarjeta')}
+      />
+    ) : null,
+  fecha: ({ datos, conTarjeta, cambiar, irA }) => (
+    <PasoFecha
+      fecha={datos.fecha}
+      onCambiar={(fecha) => cambiar({ fecha })}
+      onSiguiente={() => irA('nota')}
+      onAtras={() => irA(conTarjeta ? 'cuotas' : 'metodo')}
+    />
+  ),
+  nota: ({ datos, conTarjeta, guardando, error, cambiar, irA, guardar }) => (
+    <PasoDescripcion
+      descripcion={datos.descripcion}
+      onCambiar={(descripcion) => cambiar({ descripcion })}
+      resumen={{
+        monto: Number(datos.valor),
+        categoria: datos.categoria?.nombre ?? '',
+        metodo: datos.metodo ? ETIQUETA_METODO[datos.metodo] : '',
+        fecha: datos.fecha,
+      }}
+      detalles={conTarjeta ? filasDeTarjeta(datos.eleccion) : undefined}
+      avisos={conTarjeta ? [NOTA_DE_LA_CUOTA] : undefined}
+      guardando={guardando}
+      error={error}
+      onAtras={() => irA('fecha')}
+      onGuardar={guardar}
+    />
+  ),
+};

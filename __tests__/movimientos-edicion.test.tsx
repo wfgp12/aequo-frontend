@@ -65,6 +65,9 @@ function pendiente<T>() {
 }
 
 const VER_TODO = { includeHiddenElements: true };
+// Cambió con el paquete 5.2.4 (criterios/05-compra-con-tarjeta.md, decisión G2): la tarjeta ya se registra desde el egreso
+const AVISO_TARJETA =
+  'Las compras con tarjeta de crédito se registran desde «Registrar egreso». Aquí elige otro método.';
 const RED = 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
 
 // Los campos pueden reutilizar los componentes del registro ("Monto en pesos", "Nota") o llevar el nombre del diseño
@@ -254,7 +257,7 @@ describe('Movimientos: editar y eliminar', () => {
       expect(screen.getByLabelText('Transferencia')).toBeOnTheScreen();
 
       await fireEvent.press(screen.getByLabelText('Tarjeta crédito'));
-      expect(screen.getByText(/se podrán registrar muy pronto/)).toBeOnTheScreen();
+      expect(screen.getByText(AVISO_TARJETA)).toBeOnTheScreen();
       expect(actualizar).not.toHaveBeenCalled();
 
       await fireEvent.press(screen.getByLabelText('Transferencia'));
@@ -271,10 +274,10 @@ describe('Movimientos: editar y eliminar', () => {
       await fireEvent.changeText(campoNota(), 'Almuerzo con amigos');
       await fireEvent.press(campoMetodo());
       await fireEvent.press(screen.getByLabelText('Tarjeta crédito'));
-      expect(screen.getByText(/se podrán registrar muy pronto/)).toBeOnTheScreen();
+      expect(screen.getByText(AVISO_TARJETA)).toBeOnTheScreen();
 
       await fireEvent.press(campoMetodo());
-      expect(screen.queryByText(/se podrán registrar muy pronto/)).toBeNull();
+      expect(screen.queryByText(AVISO_TARJETA)).toBeNull();
 
       await fireEvent.press(screen.getByText('Guardar cambios'));
 

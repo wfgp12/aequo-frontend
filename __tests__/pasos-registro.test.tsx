@@ -199,23 +199,15 @@ describe('PasoMetodoPago', () => {
     expect(alElegir).toHaveBeenCalledWith(valor);
   });
 
-  it('para un egreso ofrece la tarjeta de crédito, pero no avanza y explica por qué', async () => {
+  it('CA-RF26-F01 para un egreso ofrece la tarjeta de crédito y al tocarla avanza, sin aviso', async () => {
     await abrir();
 
     await fireEvent.press(screen.getByLabelText('Tarjeta crédito'));
 
-    expect(alElegir).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toBeOnTheScreen();
-    expect(screen.getByText(/se podrán registrar muy pronto/)).toBeOnTheScreen();
-  });
-
-  it('el aviso desaparece al elegir un método válido', async () => {
-    await abrir();
-    await fireEvent.press(screen.getByLabelText('Tarjeta crédito'));
-    await fireEvent.press(screen.getByLabelText('Efectivo'));
-
+    expect(alElegir).toHaveBeenCalledTimes(1);
+    expect(alElegir).toHaveBeenCalledWith('TARJETA_CREDITO');
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(alElegir).toHaveBeenCalledWith('EFECTIVO');
+    expect(screen.queryByText(/se podrán registrar muy pronto/)).toBeNull();
   });
 
   it('para un ingreso no ofrece la tarjeta de crédito', async () => {
