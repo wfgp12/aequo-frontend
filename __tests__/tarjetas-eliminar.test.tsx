@@ -38,7 +38,7 @@ const TEXTO = {
   dialogo: '¿Eliminar esta tarjeta?',
   detalle:
     'Visa Bancolombia. Se eliminarán también sus cargos fijos. Esta acción no se puede deshacer.',
-  conPagos: 'Esta tarjeta ya tiene pagos registrados y no se puede eliminar.',
+  conPagos: 'Esta tarjeta ya tiene compras o pagos registrados y no se puede eliminar.',
   errorEliminar: 'No pudimos eliminar tu tarjeta. Inténtalo de nuevo en unos minutos.',
 };
 
@@ -153,7 +153,7 @@ describe('Eliminar una tarjeta: cuando algo falla', () => {
   it('CA-RF24-F44 si la tarjeta tiene pagos registrados (409) lo explica dentro del diálogo y la tarjeta sigue', async () => {
     await abrirDialogo();
     eliminar.mockRejectedValueOnce(
-      new ApiError(409, 'No se puede eliminar una tarjeta que ya tiene pagos registrados'),
+      new ApiError(409, 'No se puede eliminar una tarjeta que ya tiene compras registradas'),
     );
 
     await fireEvent.press(boton('Eliminar'));
@@ -162,7 +162,7 @@ describe('Eliminar una tarjeta: cuando algo falla', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(TEXTO.conPagos);
     expect(screen.getByText(TEXTO.dialogo)).toBeOnTheScreen();
     expect(
-      screen.queryByText('No se puede eliminar una tarjeta que ya tiene pagos registrados'),
+      screen.queryByText('No se puede eliminar una tarjeta que ya tiene compras registradas'),
     ).toBeNull();
 
     await fireEvent.press(boton('Cancelar'));
@@ -248,7 +248,7 @@ describe('Eliminar una tarjeta: accesibilidad y lenguaje (RNF-04, RNF-06)', () =
   it('CA-RF24-F50 el diálogo y sus avisos no usan términos técnicos ni contables', async () => {
     await abrirDialogo();
     eliminar.mockRejectedValueOnce(
-      new ApiError(409, 'No se puede eliminar una tarjeta que ya tiene pagos registrados'),
+      new ApiError(409, 'No se puede eliminar una tarjeta que ya tiene compras registradas'),
     );
     await fireEvent.press(boton('Eliminar'));
     await screen.findByText(TEXTO.conPagos);
