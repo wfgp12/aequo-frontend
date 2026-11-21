@@ -2,7 +2,7 @@ import { Text } from '@/components/ui/text';
 import type { MesProyectado, ProyeccionTarjeta } from '@/lib/api/tarjetas';
 import { formatearPesos } from '@/lib/dinero';
 import { mesActual, mesEnLetras } from '@/lib/fechas';
-import { NOTA_DE_LA_CUOTA } from '@/lib/tarjetas';
+import { NOTA_DE_LA_CUOTA, textoDeDiferencia } from '@/lib/tarjetas';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
@@ -57,13 +57,22 @@ function FilaDeMes({ mes }: { mes: MesProyectado }) {
 }
 
 /**
- * Lo que se paga en el mes elegido, lo que queda por pagar después y los meses siguientes, tal como los entrega el
- * backend. Si no hay nada de eso (tarjeta nueva, mes lejano), un texto amable en vez de ceros y tablas vacías.
+ * Lo que se paga en el mes elegido, lo que ya se pagó frente a eso, lo que queda por pagar después y los meses
+ * siguientes, tal como los entrega el backend (`pagos` es la lista de lo pagado, que va bajo sus cifras). Si no hay
+ * nada de eso (tarjeta nueva, mes lejano), un texto amable en vez de ceros y tablas vacías.
  */
-export function DetalleDelMes({ proyeccion }: { proyeccion: ProyeccionTarjeta }) {
+export function DetalleDelMes({
+  proyeccion,
+  pagos,
+}: {
+  proyeccion: ProyeccionTarjeta;
+  pagos?: ReactNode;
+}) {
   // El mes elegido ya está arriba, en "Este mes pagas": nunca se repite como fila de "Próximos meses"
   const siguientes = proyeccion.proyeccion.filter((m) => m.mes !== proyeccion.mes);
-  if (proyeccion.total === 0 && proyeccion.saldoPendiente === 0 && siguientes.length === 0) {
+  // Un mes sin nada que pagar pero con pagos registrados sí se muestra: es dinero que el usuario ya pagó
+  const hayDelMes = proyeccion.total !== 0 || proyeccion.pagado !== 0;
+  if (!hayDelMes && proyeccion.saldoPendiente === 0 && siguientes.length === 0) {
     return (
       <Text variant="muted" className="py-4 text-center">
         {SIN_PAGOS}
@@ -86,6 +95,16 @@ export function DetalleDelMes({ proyeccion }: { proyeccion: ProyeccionTarjeta })
           {NOTA_DE_LA_CUOTA}
         </Text>
       </Cifra>
+
+      {hayDelMes ? (
+        <Cifra
+          rotulo={esteMes ? 'Este mes has pagado' : `Has pagado en ${nombre}`}
+          valor={proyeccion.pagado}
+        >
+          <Text className="font-semibold">{textoDeDiferencia(proyeccion.diferencia)}</Text>
+        </Cifra>
+      ) : null}
+      {pagos}
 
       <Cifra rotulo={`Te queda por pagar después de ${nombre}`} valor={proyeccion.saldoPendiente}>
         <Text variant="muted" className="text-xs">

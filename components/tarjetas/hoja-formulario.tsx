@@ -13,9 +13,13 @@ import {
   type TextInputProps,
 } from 'react-native';
 
-type Props = {
+type MarcoProps = {
   titulo: string;
   onCerrar: () => void;
+  children: ReactNode;
+};
+
+type Props = Omit<MarcoProps, 'children'> & {
   /** Aviso de validación o de error al guardar. */
   aviso: string | null;
   guardando: boolean;
@@ -27,17 +31,8 @@ type Props = {
   acciones?: ReactNode;
 };
 
-/** Hoja de formulario sobre la lista: "Volver", los campos, el aviso y el botón de guardar con su indicador. */
-export function HojaFormulario({
-  titulo,
-  onCerrar,
-  aviso,
-  guardando,
-  textoGuardar,
-  onGuardar,
-  children,
-  acciones,
-}: Props) {
+/** La hoja que se abre sobre una pantalla: el título, "Volver" y el contenido que se desplaza. */
+export function MarcoDeHoja({ titulo, onCerrar, children }: MarcoProps) {
   return (
     <Modal transparent animationType="slide" onRequestClose={onCerrar}>
       <View className="flex-1 justify-end bg-black/50">
@@ -58,31 +53,39 @@ export function HojaFormulario({
             <View className="w-5" />
           </View>
 
-          <ScrollView keyboardShouldPersistTaps="handled">
-            {children}
-
-            {aviso ? (
-              <Text
-                variant="muted"
-                role="alert"
-                className="mt-4 text-center text-xs text-destructive"
-              >
-                {aviso}
-              </Text>
-            ) : null}
-
-            <Button className="mt-4 h-[50px] w-full" disabled={guardando} onPress={onGuardar}>
-              {guardando ? (
-                <ActivityIndicator />
-              ) : (
-                <Text className="font-semibold">{textoGuardar}</Text>
-              )}
-            </Button>
-            {acciones}
-          </ScrollView>
+          <ScrollView keyboardShouldPersistTaps="handled">{children}</ScrollView>
         </View>
       </View>
     </Modal>
+  );
+}
+
+/** Hoja de formulario sobre la lista: "Volver", los campos, el aviso y el botón de guardar con su indicador. */
+export function HojaFormulario({
+  titulo,
+  onCerrar,
+  aviso,
+  guardando,
+  textoGuardar,
+  onGuardar,
+  children,
+  acciones,
+}: Props & { children: ReactNode }) {
+  return (
+    <MarcoDeHoja titulo={titulo} onCerrar={onCerrar}>
+      {children}
+
+      {aviso ? (
+        <Text variant="muted" role="alert" className="mt-4 text-center text-xs text-destructive">
+          {aviso}
+        </Text>
+      ) : null}
+
+      <Button className="mt-4 h-[50px] w-full" disabled={guardando} onPress={onGuardar}>
+        {guardando ? <ActivityIndicator /> : <Text className="font-semibold">{textoGuardar}</Text>}
+      </Button>
+      {acciones}
+    </MarcoDeHoja>
   );
 }
 
@@ -100,16 +103,19 @@ export function Campo({ etiqueta, children }: { etiqueta: string; children: Reac
 
 export const ESTILO_CAMPO = 'h-12 rounded-lg border border-border bg-card px-3';
 
-/** Campo de texto: el lector de pantalla lo anuncia con el nombre de su etiqueta. */
+/** Campo de texto: el lector de pantalla lo anuncia con el nombre de su etiqueta (o con `nombre`, si es otro). */
 export function CampoTexto({
   etiqueta,
+  nombre = etiqueta,
   valor,
   onCambiar,
   ...props
-}: { etiqueta: string; valor: string; onCambiar: (texto: string) => void } & Pick<
-  TextInputProps,
-  'placeholder' | 'keyboardType'
->) {
+}: {
+  etiqueta: string;
+  nombre?: string;
+  valor: string;
+  onCambiar: (texto: string) => void;
+} & Pick<TextInputProps, 'placeholder' | 'keyboardType' | 'maxLength'>) {
   return (
     <Campo etiqueta={etiqueta}>
       <TextInput
@@ -117,7 +123,7 @@ export function CampoTexto({
         value={valor}
         onChangeText={onCambiar}
         placeholderTextColor="#757B81"
-        accessibilityLabel={etiqueta}
+        accessibilityLabel={nombre}
         className={cn(ESTILO_CAMPO, 'text-foreground')}
       />
     </Campo>

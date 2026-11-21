@@ -45,6 +45,9 @@ jest.mock('@/lib/api/tarjetas', () => ({
   crearTarjeta: jest.fn(),
   actualizarTarjeta: jest.fn(),
   eliminarTarjeta: jest.fn(),
+  listarPagos: jest.fn(),
+  registrarPago: jest.fn(),
+  eliminarPago: jest.fn(),
 }));
 
 const listar = jest.mocked(listarTarjetas);

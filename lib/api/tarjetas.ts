@@ -71,9 +71,42 @@ export type MesProyectado = {
 /** Lo que responde GET /tarjetas/:tarjetaId/proyeccion: el mes pedido (`mes`) y los meses que le siguen. */
 export type ProyeccionTarjeta = MesProyectado & {
   tarjetaId: string;
+  /** Lo que ya se pagó de la tarjeta en `mes` (suma de sus pagos), sin redondear. */
+  pagado: number;
+  /** `pagado` menos `total`, calculado por el backend: negativa, falta por pagar; positiva, se pagó de más. */
+  diferencia: number;
   /** Los meses siguientes, contiguos, hasta el último con cuotas; vacío si no hay cuotas después de `mes`. */
   proyeccion: MesProyectado[];
 };
+
+/** Un pago de la tarjeta: es un egreso sin categoría ligado a ella (no se edita: se elimina y se registra de nuevo). */
+export type PagoTarjeta = {
+  id: string;
+  tarjetaId: string;
+  /** Pesos, sin redondear: se redondea al peso solo al mostrarlo. */
+  valor: number;
+  /** YYYY-MM-DD */
+  fecha: string;
+  metodoPago: 'EFECTIVO' | 'DEBITO' | 'TRANSFERENCIA';
+  descripcion: string;
+  creadaEn: string;
+};
+
+/** Lo pagado frente a lo estimado en el mes de un pago, ya con ese pago incluido; los montos llegan sin redondear. */
+export type ComparacionDePagos = {
+  /** YYYY-MM */
+  mes: string;
+  estimado: number;
+  pagado: number;
+  /** `pagado` menos `estimado`: negativa, falta por pagar; positiva, se pagó de más. */
+  diferencia: number;
+};
+
+export type PagoRegistrado = PagoTarjeta & { comparacion: ComparacionDePagos };
+
+/** Cuerpo de POST …/pagos: sin fecha, método ni descripción el backend usa hoy, transferencia y "Pago de tarjeta". */
+export type DatosPago = Pick<PagoTarjeta, 'valor'> &
+  Partial<Pick<PagoTarjeta, 'fecha' | 'metodoPago' | 'descripcion'>>;
 
 export type ConsultaCuota = Pick<CompraCredito, 'valor' | 'cuotas' | 'primerPago'>;
 
@@ -177,4 +210,28 @@ export function obtenerCuotaPrevia(tarjetaId: string, consulta: ConsultaCuota) {
 /** GET /tarjetas/:tarjetaId/proyeccion?mes=YYYY-MM: lo que se paga ese mes y los siguientes; lectura sin clave. */
 export function obtenerProyeccion(tarjetaId: string, mes: string) {
   return requestAutenticado<ProyeccionTarjeta>(`/tarjetas/${tarjetaId}/proyeccion?mes=${mes}`);
+}
+
+const rutaPagos = (tarjetaId: string) => `/tarjetas/${tarjetaId}/pagos`;
+
+/** POST /tarjetas/:tarjetaId/pagos, con clave de idempotencia: responde el pago y su comparación con lo estimado. */
+export function registrarPago(tarjetaId: string, datos: DatosPago, claveIdempotencia: string) {
+  return requestAutenticado<PagoRegistrado>(rutaPagos(tarjetaId), {
+    method: 'POST',
+    body: datos,
+    claveIdempotencia,
+  });
+}
+
+/** GET /tarjetas/:tarjetaId/pagos[?mes=YYYY-MM]: el más reciente primero; sin `mes`, todos. */
+export async function listarPagos(tarjetaId: string, mes?: string): Promise<PagoTarjeta[]> {
+  const { items } = await requestAutenticado<{ items: PagoTarjeta[] }>(
+    `${rutaPagos(tarjetaId)}${mes ? `?mes=${mes}` : ''}`,
+  );
+  return items;
+}
+
+/** DELETE /tarjetas/:tarjetaId/pagos/:pagoId: responde 204 sin cuerpo. */
+export async function eliminarPago(tarjetaId: string, pagoId: string) {
+  await requestAutenticado<null>(`${rutaPagos(tarjetaId)}/${pagoId}`, { method: 'DELETE' });
 }

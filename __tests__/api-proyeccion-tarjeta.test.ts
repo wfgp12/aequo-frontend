@@ -3,7 +3,8 @@ import { ApiError, NetworkError } from '@/lib/api/client';
 import { listarTarjetas, obtenerProyeccion, obtenerTarjeta } from '@/lib/api/tarjetas';
 
 // Contrato de GET /tarjetas/:tarjetaId/proyeccion?mes=YYYY-MM y de GET /tarjetas/:id
-// (criterios/05-detalle-de-tarjeta.md, CA-RF30-F34 a F37). El backend se simula con `fetch`.
+// (criterios/05-detalle-de-tarjeta.md, CA-RF30-F34 a F37, y criterios/05-pago-de-tarjeta.md, CA-RF32-F47: la
+// proyección también trae `pagado` y `diferencia`). El backend se simula con `fetch`.
 function respuesta(status: number, body: unknown) {
   return { ok: status >= 200 && status < 300, status, statusText: 'x', json: async () => body };
 }
@@ -21,7 +22,7 @@ describe('adaptador de la proyección y de una tarjeta (/tarjetas/:id…)', () =
     creadaEn: '2026-09-17T15:00:00.000Z',
     actualizadaEn: '2026-09-18T10:30:00.000Z',
   };
-  // CON_CUOTAS del criterio: los montos llegan sin redondear
+  // PAGO_PARCIAL del criterio (CON_CUOTAS con un pago de $ 100.000): los montos llegan sin redondear
   const conCuotas = {
     tarjetaId: TARJETA_ID,
     mes: '2026-11',
@@ -29,6 +30,8 @@ describe('adaptador de la proyección y de una tarjeta (/tarjetas/:id…)', () =
     cargosFijos: 55000,
     total: 346270.05016469,
     saldoPendiente: 1766528.890201,
+    pagado: 100000,
+    diferencia: -246270.05016469,
     proyeccion: [
       {
         mes: '2026-12',
@@ -115,6 +118,8 @@ describe('adaptador de la proyección y de una tarjeta (/tarjetas/:id…)', () =
       expect(entregada.cuotas).toBe(291270.05016469);
       expect(entregada.total).toBe(346270.05016469);
       expect(entregada.saldoPendiente).toBe(1766528.890201);
+      expect(entregada.pagado).toBe(100000);
+      expect(entregada.diferencia).toBe(-246270.05016469);
       expect(entregada.proyeccion.map((m) => m.mes)).toEqual(['2026-12', '2027-01', '2027-02']);
       expect(entregada.proyeccion[0]).toEqual({
         mes: '2026-12',
@@ -133,6 +138,8 @@ describe('adaptador de la proyección y de una tarjeta (/tarjetas/:id…)', () =
         cargosFijos: 55000,
         total: 55000,
         saldoPendiente: 0,
+        pagado: 0,
+        diferencia: -55000,
         proyeccion: [],
       };
       fetchMock.mockResolvedValue(respuesta(200, vacia));
@@ -142,6 +149,47 @@ describe('adaptador de la proyección y de una tarjeta (/tarjetas/:id…)', () =
       expect(entregada).toEqual(vacia);
       expect(Object.keys(entregada).sort()).toEqual(Object.keys(vacia).sort());
       expect(entregada.proyeccion).toEqual([]);
+    });
+  });
+
+  describe('obtenerProyeccion: lo pagado', () => {
+    it('CA-RF32-F47 entrega pagado y diferencia tal como llegaron, sin redondear ni recalcular', async () => {
+      fetchMock.mockResolvedValue(respuesta(200, conCuotas));
+
+      const entregada = await obtenerProyeccion(TARJETA_ID, '2026-11');
+
+      expect(entregada.pagado).toBe(100000);
+      expect(entregada.diferencia).toBe(-246270.05016469);
+      expect(entregada.total).toBe(346270.05016469);
+      expect(entregada.saldoPendiente).toBe(1766528.890201);
+      expect(entregada).toEqual(conCuotas);
+    });
+
+    it('CA-RF32-F47 con cifras que no cuadran entre sí entrega las que llegan, sin corregirlas', async () => {
+      const queNoCuadran = { ...conCuotas, pagado: 100000, diferencia: 5, total: 150000 };
+      fetchMock.mockResolvedValue(respuesta(200, queNoCuadran));
+
+      const entregada = await obtenerProyeccion(TARJETA_ID, '2026-11');
+
+      expect(entregada.diferencia).toBe(5);
+      expect(entregada.pagado).toBe(100000);
+      expect(entregada.total).toBe(150000);
+    });
+
+    it('CA-RF32-F47 las filas de la proyección no traen pagado ni diferencia y no se les agrega nada', async () => {
+      fetchMock.mockResolvedValue(respuesta(200, conCuotas));
+
+      const entregada = await obtenerProyeccion(TARJETA_ID, '2026-11');
+
+      for (const fila of entregada.proyeccion) {
+        expect(Object.keys(fila).sort()).toEqual([
+          'cargosFijos',
+          'cuotas',
+          'mes',
+          'saldoPendiente',
+          'total',
+        ]);
+      }
     });
   });
 

@@ -2,10 +2,13 @@ import { ApiError, NetworkError } from '@/lib/api/client';
 import {
   actualizarTarjeta,
   crearTarjeta,
+  eliminarPago,
   eliminarTarjeta,
+  listarPagos,
   listarTarjetas,
   obtenerProyeccion,
   obtenerTarjeta,
+  registrarPago,
   type ProyeccionTarjeta,
   type Tarjeta,
 } from '@/lib/api/tarjetas';
@@ -46,6 +49,9 @@ jest.mock('@/lib/api/tarjetas', () => ({
   crearTarjeta: jest.fn(),
   actualizarTarjeta: jest.fn(),
   eliminarTarjeta: jest.fn(),
+  listarPagos: jest.fn(),
+  registrarPago: jest.fn(),
+  eliminarPago: jest.fn(),
 }));
 
 const listar = jest.mocked(listarTarjetas);
@@ -139,11 +145,13 @@ describe('Detalle de la tarjeta: carga', () => {
   it('CA-RF30-F04 al entrar pide la tarjeta y los pagos del mes de hoy, una sola vez cada una y a la vez', async () => {
     const { tarjeta, pagos } = await dibujarSinRespuestas();
 
-    // Salen las dos sin esperar a que la otra responda
+    // Salen las tres sin esperar a que otra responda (CA-RF32-F30: ahora también los pagos registrados del mes)
     expect(obtenerProyeccion).toHaveBeenCalledTimes(1);
     expect(obtenerProyeccion).toHaveBeenCalledWith(VISA_ID, '2026-11');
     expect(obtenerTarjeta).toHaveBeenCalledTimes(1);
     expect(obtenerTarjeta).toHaveBeenCalledWith(VISA_ID);
+    expect(listarPagos).toHaveBeenCalledTimes(1);
+    expect(listarPagos).toHaveBeenCalledWith(VISA_ID, '2026-11');
 
     await act(async () => {
       tarjeta.resolver({ ...VISA });
@@ -157,6 +165,10 @@ describe('Detalle de la tarjeta: carga', () => {
 
     expect(obtenerProyeccion).toHaveBeenCalledTimes(1);
     expect(obtenerTarjeta).toHaveBeenCalledTimes(1);
+    // Solo se suman los pagos registrados del mes (CA-RF32-F30): nada de registrar ni eliminar pagos
+    expect(listarPagos).toHaveBeenCalledTimes(1);
+    expect(registrarPago).not.toHaveBeenCalled();
+    expect(eliminarPago).not.toHaveBeenCalled();
     expect(listar).not.toHaveBeenCalled();
     expect(actualizarTarjeta).not.toHaveBeenCalled();
     expect(crearTarjeta).not.toHaveBeenCalled();
@@ -169,6 +181,7 @@ describe('Detalle de la tarjeta: carga', () => {
     await mostrarDetalle();
 
     expect(obtenerProyeccion).toHaveBeenCalledWith(VISA_ID, '2026-01');
+    expect(listarPagos).toHaveBeenCalledWith(VISA_ID, '2026-01');
     expect(screen.getByText('enero 2026')).toBeOnTheScreen();
   });
 
@@ -177,6 +190,7 @@ describe('Detalle de la tarjeta: carga', () => {
 
     expect(obtenerProyeccion).toHaveBeenCalledWith('otra-tarjeta', '2026-11');
     expect(obtenerTarjeta).toHaveBeenCalledWith('otra-tarjeta');
+    expect(listarPagos).toHaveBeenCalledWith('otra-tarjeta', '2026-11');
   });
 
   it('CA-RF30-F05 mientras carga solo se ve el indicador con el título, "Volver" y el selector, sin montos ni avisos ni botones de la tarjeta', async () => {
