@@ -17,8 +17,12 @@ export const TECNICO =
 
 export function pendiente<T>() {
   let resolver!: (valor: T) => void;
-  const promesa = new Promise<T>((r) => (resolver = r));
-  return { promesa, resolver };
+  let rechazar!: (error: unknown) => void;
+  const promesa = new Promise<T>((resolve, reject) => {
+    resolver = resolve;
+    rechazar = reject;
+  });
+  return { promesa, resolver, rechazar };
 }
 
 /** Todos los textos visibles, en el orden en que aparecen en pantalla. */
@@ -39,10 +43,12 @@ export const boton = (nombre: string, opciones = {}) =>
 
 /**
  * El botón "Volver" de una hoja: se busca a partir del título de la hoja, porque la pantalla que está debajo
- * también tiene su "Volver".
+ * también tiene su "Volver". Si el título se repite en la pantalla de abajo (el botón "Editar tarjeta" del detalle),
+ * se parte del último, que es el de la hoja (se pinta encima, después de la pantalla).
  */
 export function volverDeLaHoja(titulo: string) {
-  let nodo = screen.getByText(titulo).parent;
+  const titulos = screen.getAllByText(titulo);
+  let nodo = titulos[titulos.length - 1].parent;
   while (nodo) {
     const botones = within(nodo).queryAllByRole('button', { name: 'Volver' });
     if (botones.length) return botones[botones.length - 1];
@@ -74,4 +80,10 @@ export async function gestoAtras() {
   // En las pruebas, el diálogo modal de React Native es un elemento "Modal" que lleva su onRequestClose
   const modales = screen.container.queryAll((nodo) => nodo.type === 'Modal');
   await act(async () => modales[modales.length - 1].props.onRequestClose());
+}
+
+/** La hoja o el diálogo que está encima (el último diálogo modal abierto), para mirar solo lo que tiene. */
+export function laHoja() {
+  const modales = screen.container.queryAll((nodo) => nodo.type === 'Modal');
+  return within(modales[modales.length - 1]);
 }

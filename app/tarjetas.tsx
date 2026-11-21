@@ -6,7 +6,6 @@ import {
 } from '@/components/tarjetas/pantalla-de-lista';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import type { Tarjeta } from '@/lib/api/tarjetas';
 import { textoDeTasa } from '@/lib/tarjetas';
 import { useTarjetas } from '@/lib/use-tarjetas';
 import { useRouter } from 'expo-router';
@@ -14,14 +13,14 @@ import { useState } from 'react';
 
 /**
  * "Mis tarjetas" (wireframe de Figma, sin los datos que la API no tiene todavía: cupo, corte, pago y deuda):
- * crea, edita (también la tasa) y elimina tarjetas, y lleva a sus cargos fijos y al avance en efectivo. Solo presenta lo que responde
- * el backend, en el orden que él manda.
+ * crea tarjetas y lleva al detalle de cada una (donde se edita, se elimina y se ven sus pagos) y al avance en
+ * efectivo. Solo presenta lo que responde el backend, en el orden que él manda.
  */
 export default function Tarjetas() {
   const router = useRouter();
-  const { cargando, items, fallo, recargar } = useTarjetas();
-  // 'nueva' abre el formulario vacío; una tarjeta, el de editarla
-  const [hoja, setHoja] = useState<Tarjeta | 'nueva' | null>(null);
+  // Al volver de un detalle (donde pudo cambiar o eliminarse una tarjeta) la lista se pide de nuevo
+  const { cargando, items, fallo, recargar } = useTarjetas(true);
+  const [creando, setCreando] = useState(false);
 
   return (
     <PantallaDeLista
@@ -31,13 +30,8 @@ export default function Tarjetas() {
       fallo={fallo}
       onReintentar={recargar}
       hoja={
-        hoja ? (
-          <HojaTarjeta
-            key={hoja === 'nueva' ? 'nueva' : hoja.id}
-            tarjeta={hoja === 'nueva' ? null : hoja}
-            onCerrar={() => setHoja(null)}
-            onCambio={recargar}
-          />
+        creando ? (
+          <HojaTarjeta tarjeta={null} onCerrar={() => setCreando(false)} onCambio={recargar} />
         ) : null
       }
     >
@@ -51,11 +45,16 @@ export default function Tarjetas() {
             key={tarjeta.id}
             titulo={tarjeta.nombre}
             detalle={textoDeTasa(tarjeta.tasaEA)}
-            onPress={() => setHoja(tarjeta)}
+            onPress={() =>
+              router.push({
+                pathname: '/tarjetas/[id]',
+                params: { id: tarjeta.id, nombre: tarjeta.nombre },
+              })
+            }
           />
         ))
       )}
-      <BotonAgregar texto="+ Agregar tarjeta" onPress={() => setHoja('nueva')} />
+      <BotonAgregar texto="+ Agregar tarjeta" onPress={() => setCreando(true)} />
       {items.length > 0 ? (
         <Button
           variant="outline"

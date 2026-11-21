@@ -33,6 +33,7 @@ function Navegacion() {
         <Stack.Screen name="reportes" />
         <Stack.Screen name="meta-de-ahorro" />
         <Stack.Screen name="tarjetas" />
+        <Stack.Screen name="tarjetas/[id]/index" />
         <Stack.Screen name="tarjetas/[id]/cargos" />
         <Stack.Screen name="avance-en-efectivo" />
       </Stack.Protected>

@@ -73,6 +73,18 @@ describe('RootLayout', () => {
     expect(screen.queryByText(/^pantalla tarjetas/)).toBeNull();
   });
 
+  it('CA-RF30-F02 con sesión activa el detalle de una tarjeta está disponible', async () => {
+    mockEstado = 'activa';
+    await render(<RootLayout />);
+    expect(screen.getByText(/^pantalla tarjetas\/\[id\](\/index)?$/)).toBeOnTheScreen();
+  });
+
+  it('CA-RF30-F02 sin sesión el detalle de una tarjeta no está disponible', async () => {
+    mockEstado = 'sin-sesion';
+    await render(<RootLayout />);
+    expect(screen.queryByText(/^pantalla tarjetas\/\[id\](\/index)?$/)).toBeNull();
+  });
+
   it('sin sesión expone el login y no la vista principal', async () => {
     mockEstado = 'sin-sesion';
     await render(<RootLayout />);

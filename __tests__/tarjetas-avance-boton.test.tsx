@@ -13,6 +13,8 @@ const mockNavigate = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: jest.fn(), push: mockPush, navigate: mockNavigate }),
+  // "Mis tarjetas" vuelve a pedir su lista al recuperar el foco (criterios/05-detalle-de-tarjeta.md, CA-RF30-F29)
+  useFocusEffect: require('./ayudas/router-simulado').useFocusEffectSimulado,
 }));
 jest.mock('@/lib/api/tarjetas', () => ({
   ...jest.requireActual('@/lib/api/tarjetas'),

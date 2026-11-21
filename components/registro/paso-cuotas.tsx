@@ -1,8 +1,8 @@
+import { SelectorDeMes } from '@/components/selector-de-mes';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import type { Tarjeta } from '@/lib/api/tarjetas';
 import { formatearPesos, soloDigitos } from '@/lib/dinero';
-import { mesEnLetras, restarMeses } from '@/lib/fechas';
 import {
   leerCuotas,
   MAX_CUOTAS,
@@ -53,32 +53,6 @@ function OpcionDeCuotas({
     >
       <Text className={cn('font-semibold', elegida && 'text-background')}>{etiqueta}</Text>
     </Pressable>
-  );
-}
-
-function SelectorDelMes({ mes, onCambiar }: { mes: string; onCambiar: (mes: string) => void }) {
-  return (
-    <View className="mt-2 flex-row items-center justify-between">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Mes anterior"
-        onPress={() => onCambiar(restarMeses(mes, 1))}
-        hitSlop={12}
-        className="min-h-11 min-w-11 items-center justify-center"
-      >
-        <Text className="text-2xl">‹</Text>
-      </Pressable>
-      <Text className="text-lg font-semibold">{mesEnLetras(mes)}</Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Mes siguiente"
-        onPress={() => onCambiar(restarMeses(mes, -1))}
-        hitSlop={12}
-        className="min-h-11 min-w-11 items-center justify-center"
-      >
-        <Text className="text-2xl">›</Text>
-      </Pressable>
-    </View>
   );
 }
 
@@ -190,7 +164,7 @@ export function PasoCuotas({ tarjeta, valor, eleccion, onCambiar, onSiguiente, o
         ) : null}
 
         <Text className="mt-6 text-lg font-semibold">¿En qué mes pagas la primera cuota?</Text>
-        <SelectorDelMes mes={primerPago} onCambiar={(mes) => onCambiar({ primerPago: mes })} />
+        <SelectorDeMes mes={primerPago} onCambiar={(mes) => onCambiar({ primerPago: mes })} />
 
         <CuotaEstimada vista={vista} cuotas={numero} onReintentar={reintentar} />
       </ScrollView>

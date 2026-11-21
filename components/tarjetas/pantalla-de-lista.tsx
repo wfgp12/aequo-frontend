@@ -5,27 +5,26 @@ import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 
-type Props = {
+type MarcoProps = {
   titulo: string;
   /** Línea pequeña bajo el título. */
   subtitulo?: string;
+  /** Hoja o diálogo que se abre sobre la pantalla. */
+  hoja?: ReactNode;
+  children: ReactNode;
+};
+
+type EstadoProps = {
   /** Lo que anuncia el lector de pantalla mientras carga: "Cargando tus tarjetas". */
   etiquetaDeCarga: string;
   cargando: boolean;
   fallo: Fallo | null;
   onReintentar: () => void;
-  /** Hoja o diálogo que se abre sobre la pantalla. */
-  hoja?: ReactNode;
-  /** La lista, que solo se ve cuando ya cargó. */
+  /** Lo que se ve cuando ya cargó. */
   children: ReactNode;
 };
 
-type EstadoProps = Pick<
-  Props,
-  'etiquetaDeCarga' | 'cargando' | 'fallo' | 'onReintentar' | 'children'
->;
-
-/** Lo que se ve de una lista remota: el indicador mientras carga, el aviso de fallo con "Reintentar" o la lista. */
+/** Lo que se ve de una consulta remota: el indicador mientras carga, el aviso de fallo con "Reintentar" o el contenido. */
 export function EstadoDeLista({
   etiquetaDeCarga,
   cargando,
@@ -57,17 +56,8 @@ export function EstadoDeLista({
   return <>{children}</>;
 }
 
-/** Pantalla de una lista del backend: encabezado con "Volver", indicador de carga, aviso de fallo y la lista. */
-export function PantallaDeLista({
-  titulo,
-  subtitulo,
-  etiquetaDeCarga,
-  cargando,
-  fallo,
-  onReintentar,
-  hoja,
-  children,
-}: Props) {
+/** El marco de las pantallas de tarjetas: encabezado con "Volver" y el título, el contenido que se desplaza y la hoja. */
+export function MarcoDePantalla({ titulo, subtitulo, hoja, children }: MarcoProps) {
   const router = useRouter();
 
   return (
@@ -92,17 +82,25 @@ export function PantallaDeLista({
           </View>
         </View>
 
-        <EstadoDeLista
-          etiquetaDeCarga={etiquetaDeCarga}
-          cargando={cargando}
-          fallo={fallo}
-          onReintentar={onReintentar}
-        >
-          {children}
-        </EstadoDeLista>
+        {children}
       </ScrollView>
       {hoja}
     </View>
+  );
+}
+
+/** Pantalla de una lista del backend: encabezado con "Volver", indicador de carga, aviso de fallo y la lista. */
+export function PantallaDeLista({
+  titulo,
+  subtitulo,
+  hoja,
+  children,
+  ...estado
+}: MarcoProps & EstadoProps) {
+  return (
+    <MarcoDePantalla titulo={titulo} subtitulo={subtitulo} hoja={hoja}>
+      <EstadoDeLista {...estado}>{children}</EstadoDeLista>
+    </MarcoDePantalla>
   );
 }
 

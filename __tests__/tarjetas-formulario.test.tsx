@@ -4,17 +4,27 @@ import {
   crearTarjeta,
   eliminarTarjeta,
   listarTarjetas,
+  obtenerProyeccion,
+  obtenerTarjeta,
   type Tarjeta,
 } from '@/lib/api/tarjetas';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AMEX, crearServidorDeTarjetas, VISA } from './ayudas/datos-tarjetas';
+import { mostrarDetalle } from './ayudas/detalle-tarjeta';
 import { alternar, boton, estaEncendido, interruptor, volverDeLaHoja } from './ayudas/tarjetas';
 
 // Formulario de la tarjeta (hoja "Nueva tarjeta" / "Editar tarjeta"): qué contiene, cómo se escribe la tasa y
-// la validación antes de llamar al backend (criterios/05-tarjetas-pantallas.md, CA-RF24-F14 a F24).
-jest.mock('expo-router', () => ({ useRouter: () => ({ back: jest.fn(), push: jest.fn() }) }));
+// la validación antes de llamar al backend (criterios/05-tarjetas-pantallas.md, CA-RF24-F14 a F24). La hoja de
+// editar se abre desde el detalle de la tarjeta (criterios/05-detalle-de-tarjeta.md, CA-RF30-F24).
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ back: jest.fn(), push: jest.fn() }),
+  useLocalSearchParams: () => require('./ayudas/router-simulado').parametros,
+  useFocusEffect: require('./ayudas/router-simulado').useFocusEffectSimulado,
+}));
 jest.mock('@/lib/api/tarjetas', () => ({
   listarTarjetas: jest.fn(),
+  obtenerTarjeta: jest.fn(),
+  obtenerProyeccion: jest.fn(),
   crearTarjeta: jest.fn(),
   actualizarTarjeta: jest.fn(),
   eliminarTarjeta: jest.fn(),
@@ -53,21 +63,26 @@ async function abrirNueva() {
   await fireEvent.press(boton('+ Agregar tarjeta'));
   await screen.findByText('Nueva tarjeta');
 }
-async function abrirEdicion(tarjeta: Tarjeta = VISA, tasa = '29,21') {
-  await mostrar([tarjeta]);
-  await fireEvent.press(boton(`${tarjeta.nombre}, Tasa ${tasa} % E.A.`));
-  await screen.findByText('Editar tarjeta');
+/** La hoja de editar se abre desde el detalle de la tarjeta (botón "Editar tarjeta"). */
+async function abrirEdicion(tarjeta: Tarjeta = VISA) {
+  const servidor = crearServidorDeTarjetas([tarjeta]);
+  actualizar.mockImplementation(async (id, cambios) => servidor.actualizar(id, cambios));
+  await mostrarDetalle({ servidor, params: { id: tarjeta.id, nombre: tarjeta.nombre } });
+  await fireEvent.press(boton('Editar tarjeta'));
+  await screen.findByText('Guardar tarjeta');
 }
 async function llenarNueva(alias = 'Visa Oro', tasa = '24') {
   await abrirNueva();
   await escribirAlias(alias);
   await escribirTasa(tasa);
 }
-const hojaCerrada = (titulo: string) =>
-  waitFor(() => expect(screen.queryByText(titulo)).toBeNull());
+// El campo "Alias" solo está en la hoja: el título "Editar tarjeta" también lo dice el botón del detalle
+const hojaCerrada = () => waitFor(() => expect(screen.queryByLabelText('Alias')).toBeNull());
 
 beforeEach(() => {
   listar.mockReset().mockResolvedValue([]);
+  jest.mocked(obtenerTarjeta).mockReset();
+  jest.mocked(obtenerProyeccion).mockReset();
   crear.mockReset();
   actualizar.mockReset();
   eliminar.mockReset();
@@ -92,7 +107,8 @@ describe('Formulario de tarjeta: qué contiene', () => {
   it('CA-RF24-F14 "Editar tarjeta" suma "Cargos fijos", "Eliminar tarjeta" y la nota sobre la tasa', async () => {
     await abrirEdicion();
 
-    expect(screen.getByText('Editar tarjeta')).toBeOnTheScreen();
+    // El título de la hoja y el botón del detalle dicen igual
+    expect(screen.getAllByText('Editar tarjeta')).toHaveLength(2);
     expect(volverDeLaHoja('Editar tarjeta')).toBeOnTheScreen();
     expect(campoAlias().props.placeholder).toBe('Ej: Visa Bancolombia');
     expect(campoTasa().props.placeholder).toBe('Ej: 24%');
@@ -115,18 +131,18 @@ describe('Formulario de tarjeta: qué contiene', () => {
 
       await fireEvent.press(volverDeLaHoja(titulo));
 
-      await hojaCerrada(titulo);
+      await hojaCerrada();
       expect(crear).not.toHaveBeenCalled();
       expect(actualizar).not.toHaveBeenCalled();
       expect(eliminar).not.toHaveBeenCalled();
     },
   );
 
-  it('CA-RF24-F15 tras "Volver" la lista queda igual', async () => {
+  it('CA-RF24-F15 tras "Volver" el detalle queda igual', async () => {
     await abrirEdicion();
     await escribirAlias('Cambio sin guardar');
     await fireEvent.press(volverDeLaHoja('Editar tarjeta'));
-    await hojaCerrada('Editar tarjeta');
+    await hojaCerrada();
 
     expect(screen.getByText('Visa Bancolombia')).toBeOnTheScreen();
     expect(screen.getByText('Tasa 29,21 % E.A.')).toBeOnTheScreen();
@@ -323,21 +339,16 @@ describe('Formulario de tarjeta: la tasa, del porcentaje a la fracción y de vue
       [0, '0'],
       [1, '100'],
     ];
-    await mostrar(
-      guardadas.map(([tasaEA], i) => ({ ...VISA, id: `t${i}`, nombre: `Tarjeta ${i}`, tasaEA })),
-    );
 
-    for (const [i, [, visto]] of guardadas.entries()) {
-      await fireEvent.press(screen.getByRole('button', { name: new RegExp(`^Tarjeta ${i},`) }));
-      await screen.findByText('Editar tarjeta');
+    for (const [i, [tasaEA, visto]] of guardadas.entries()) {
+      await abrirEdicion({ ...VISA, id: `t${i}`, nombre: `Tarjeta ${i}`, tasaEA });
       expect(campoTasa()).toHaveDisplayValue(visto);
-      await fireEvent.press(volverDeLaHoja('Editar tarjeta'));
-      await hojaCerrada('Editar tarjeta');
+      await screen.unmount();
     }
   });
 
   it('CA-RF24-F24 guardar sin tocar la tasa no la envía (no se reenvía convertida de ida y vuelta)', async () => {
-    await abrirEdicion({ ...VISA, tasaEA: 0.07 }, '7');
+    await abrirEdicion({ ...VISA, tasaEA: 0.07 });
     await escribirAlias('Visa Oro');
 
     await fireEvent.press(guardar());

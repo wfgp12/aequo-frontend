@@ -31,13 +31,15 @@ type Props = {
   onCerrar: () => void;
   /** Algo cambió en el servidor (se guardó, se eliminó o ya no existe): la lista debe volver a cargarse. */
   onCambio: () => void;
+  /** Si se da, al eliminar la tarjeta se llama a esto en vez de `onCambio` (volver a pedir algo que ya no existe no sirve). */
+  onEliminada?: () => void;
 };
 
 /**
  * Hoja "Nueva tarjeta" / "Editar tarjeta": alias, tasa de interés y si las compras a 1 cuota van sin intereses.
  * Al editar envía solo lo que cambió (así se cambia la tasa) y suma "Cargos fijos" y "Eliminar tarjeta".
  */
-export function HojaTarjeta({ tarjeta, onCerrar, onCambio }: Props) {
+export function HojaTarjeta({ tarjeta, onCerrar, onCambio, onEliminada }: Props) {
   const router = useRouter();
   const inicial = camposDeTarjeta(tarjeta);
   const [alias, setAlias] = useState(inicial.alias);
@@ -138,7 +140,7 @@ export function HojaTarjeta({ tarjeta, onCerrar, onCambio }: Props) {
           mensajeDeError={mensajeAlEliminarTarjeta}
           onCancelar={() => setConfirmando(false)}
           onEliminado={() => {
-            onCambio();
+            (onEliminada ?? onCambio)();
             onCerrar();
           }}
         />

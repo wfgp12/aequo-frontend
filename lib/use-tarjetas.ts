@@ -3,8 +3,9 @@ import { fallosDeCargos, fallosDeTarjetas } from '@/lib/tarjetas';
 import { useListaRemota } from '@/lib/use-lista-remota';
 import { useCallback } from 'react';
 
-/** Las tarjetas del usuario, ya ordenadas por el backend. */
-export const useTarjetas = () => useListaRemota(listarTarjetas, fallosDeTarjetas);
+/** Las tarjetas del usuario, ya ordenadas por el backend; con `alEnfocar` se piden de nuevo al volver a la pantalla. */
+export const useTarjetas = (alEnfocar = false) =>
+  useListaRemota(listarTarjetas, fallosDeTarjetas, alEnfocar);
 
 /** Todos los cargos fijos de una tarjeta (activos e inactivos), en el orden en que llegan. */
 export function useCargos(tarjetaId: string) {
