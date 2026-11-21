@@ -5,10 +5,13 @@ import {
   crearTarjeta,
   eliminarTarjeta,
   listarTarjetas,
+  obtenerProyeccion,
+  obtenerTarjeta,
   type Tarjeta,
 } from '@/lib/api/tarjetas';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AMEX, crearServidorDeTarjetas, VISA, VISA_ID } from './ayudas/datos-tarjetas';
+import { mostrarDetalle } from './ayudas/detalle-tarjeta';
 import {
   alternar,
   boton,
@@ -22,10 +25,17 @@ import {
 
 // Guardar una tarjeta nueva o editar una existente, y los errores al guardar
 // (criterios/05-tarjetas-pantallas.md, CA-RF24-F25 a F39). El backend se simula con un servidor en memoria en el
-// borde del adaptador: así las pruebas solo miran lo que ve el usuario.
-jest.mock('expo-router', () => ({ useRouter: () => ({ back: jest.fn(), push: jest.fn() }) }));
+// borde del adaptador: así las pruebas solo miran lo que ve el usuario. Editar una tarjeta se hace desde su detalle
+// (criterios/05-detalle-de-tarjeta.md, CA-RF30-F24 y F25); crear, desde "Mis tarjetas".
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ back: jest.fn(), push: jest.fn() }),
+  useLocalSearchParams: () => require('./ayudas/router-simulado').parametros,
+  useFocusEffect: require('./ayudas/router-simulado').useFocusEffectSimulado,
+}));
 jest.mock('@/lib/api/tarjetas', () => ({
   listarTarjetas: jest.fn(),
+  obtenerTarjeta: jest.fn(),
+  obtenerProyeccion: jest.fn(),
   crearTarjeta: jest.fn(),
   actualizarTarjeta: jest.fn(),
   eliminarTarjeta: jest.fn(),
@@ -67,15 +77,20 @@ async function nuevaLlena(alias = 'Visa Bancolombia', tasa = '29,21') {
   await escribirAlias(alias);
   await escribirTasa(tasa);
 }
+/** La hoja de editar se abre desde el detalle de la tarjeta (botón "Editar tarjeta"). */
 async function abrirEdicion() {
-  await mostrar([VISA, AMEX]);
-  await fireEvent.press(boton('Visa Bancolombia, Tasa 29,21 % E.A.'));
-  await screen.findByText('Editar tarjeta');
+  servidor = crearServidorDeTarjetas([VISA, AMEX]);
+  actualizar.mockImplementation(async (id, cambios) => servidor.actualizar(id, cambios));
+  await mostrarDetalle({ servidor });
+  await fireEvent.press(boton('Editar tarjeta'));
+  await screen.findByText('Guardar tarjeta');
 }
 const clavesUsadas = () => crear.mock.calls.map(([, clave]) => clave);
 
 beforeEach(() => {
   listar.mockReset().mockResolvedValue([]);
+  jest.mocked(obtenerTarjeta).mockReset();
+  jest.mocked(obtenerProyeccion).mockReset();
   crear.mockReset();
   actualizar.mockReset();
   eliminar.mockReset();
@@ -216,11 +231,11 @@ describe('Editar una tarjeta (y cambiar su tasa)', () => {
 
     await fireEvent.press(guardar());
 
-    await waitFor(() => expect(screen.queryByText('Editar tarjeta')).toBeNull());
+    await waitFor(() => expect(hojaAbierta()).toBe(false));
     expect(actualizar).not.toHaveBeenCalled();
   });
 
-  it('CA-RF24-F30 al cambiar la tasa envía solo la tasa nueva y la fila de la lista dice la nueva', async () => {
+  it('CA-RF24-F30 al cambiar la tasa envía solo la tasa nueva y el detalle muestra la nueva', async () => {
     await abrirEdicion();
     await escribirTasa('31,5');
 
@@ -231,8 +246,6 @@ describe('Editar una tarjeta (y cambiar su tasa)', () => {
     await hojaCerradaLuego();
     expect(await screen.findByText('Tasa 31,5 % E.A.')).toBeOnTheScreen();
     expect(screen.getByText('Visa Bancolombia')).toBeOnTheScreen();
-    expect(screen.getByText('Amex')).toBeOnTheScreen();
-    expect(screen.getByText('Tasa 24,21 % E.A.')).toBeOnTheScreen();
     expect(screen.queryByText('Tasa 29,21 % E.A.')).toBeNull();
   });
 
@@ -241,22 +254,22 @@ describe('Editar una tarjeta (y cambiar su tasa)', () => {
 
     await fireEvent.press(guardar());
 
-    await waitFor(() => expect(screen.queryByText('Editar tarjeta')).toBeNull());
+    await waitFor(() => expect(hojaAbierta()).toBe(false));
     expect(actualizar).not.toHaveBeenCalled();
     expect(crear).not.toHaveBeenCalled();
   });
 
-  it('CA-RF24-F32 al editar con éxito la hoja se cierra, la lista se vuelve a pedir y muestra el nombre nuevo sin duplicar', async () => {
+  it('CA-RF24-F32 al editar con éxito la hoja se cierra, se vuelve a pedir la tarjeta y el detalle muestra el nombre nuevo, sin duplicar', async () => {
     await abrirEdicion();
     await escribirAlias('Visa Oro');
 
     await fireEvent.press(guardar());
 
     await hojaCerradaLuego();
-    await waitFor(() => expect(listar).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(obtenerTarjeta).toHaveBeenCalledTimes(2));
     expect(await screen.findAllByText('Visa Oro')).toHaveLength(1);
     expect(screen.queryByText('Visa Bancolombia')).toBeNull();
-    expect(screen.getAllByText(/^Tasa /)).toHaveLength(2);
+    expect(screen.getAllByText(/^Tasa /)).toHaveLength(1);
   });
 
   it('CA-RF24-F33 dos toques seguidos al editar envían una sola solicitud y muestran el indicador', async () => {
@@ -276,12 +289,11 @@ describe('Editar una tarjeta (y cambiar su tasa)', () => {
   });
 });
 
+// El campo "Alias" solo está en la hoja: el título "Editar tarjeta" también lo dice el botón del detalle
 async function hojaCerradaLuego() {
-  await waitFor(() => {
-    expect(screen.queryByText('Nueva tarjeta')).toBeNull();
-    expect(screen.queryByText('Editar tarjeta')).toBeNull();
-  });
+  await waitFor(() => expect(screen.queryByLabelText('Alias')).toBeNull());
 }
+const hojaAbierta = () => screen.queryByLabelText('Alias') !== null;
 
 describe('Errores al guardar una tarjeta', () => {
   it('CA-RF24-F34 un alias repetido (409) al crear avisa dentro de la hoja, que sigue abierta con lo escrito', async () => {
@@ -306,7 +318,7 @@ describe('Errores al guardar una tarjeta', () => {
     await fireEvent.press(guardar());
 
     expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.repetido);
-    expect(screen.getByText('Editar tarjeta')).toBeOnTheScreen();
+    expect(screen.getAllByText('Editar tarjeta')).toHaveLength(2);
     expect(campoAlias()).toHaveDisplayValue('Amex');
 
     await escribirAlias('Amex 2');
@@ -315,7 +327,7 @@ describe('Errores al guardar una tarjeta', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('CA-RF24-F35 si la tarjeta ya no existe (404 al editar) avisa y, al cerrar la hoja, la lista ya no la muestra', async () => {
+  it('CA-RF24-F35 si la tarjeta ya no existe (404 al editar) avisa y, al cerrar la hoja, el detalle dice que ya no existe', async () => {
     await abrirEdicion();
     actualizar.mockImplementationOnce(async () => {
       servidor.items = servidor.items.filter((t) => t.id !== VISA_ID);
@@ -325,16 +337,19 @@ describe('Errores al guardar una tarjeta', () => {
 
     await fireEvent.press(guardar());
 
-    expect(await screen.findByText(TEXTO.yaNoExiste)).toBeOnTheScreen();
-    expect(screen.getByRole('alert')).toHaveTextContent(TEXTO.yaNoExiste);
+    // El aviso de la hoja (y, detrás, el del detalle, que ya volvió a pedir la tarjeta)
+    expect((await screen.findAllByText(TEXTO.yaNoExiste)).length).toBeGreaterThan(0);
+    const alertas = screen.getAllByRole('alert');
+    expect(alertas[alertas.length - 1]).toHaveTextContent(TEXTO.yaNoExiste);
     expect(screen.queryByText('Tarjeta no encontrada')).toBeNull();
 
     await fireEvent.press(volverDeLaHoja('Editar tarjeta'));
 
     await hojaCerradaLuego();
-    await waitFor(() => expect(screen.queryByText('Visa Bancolombia')).toBeNull());
-    expect(listar.mock.calls.length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText('Amex')).toBeOnTheScreen();
+    expect(await screen.findByText(TEXTO.yaNoExiste)).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Editar tarjeta' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mes siguiente' })).toBeNull();
+    expect(obtenerTarjeta).toHaveBeenCalledTimes(2);
   });
 
   it('CA-RF24-F36 sin conexión al crear avisa, conserva lo escrito y reintenta con la misma clave y el mismo cuerpo', async () => {
@@ -405,7 +420,7 @@ describe('Errores al guardar una tarjeta', () => {
       await fireEvent.press(guardar());
 
       expect(await screen.findByText(TEXTO.errorGuardar)).toBeOnTheScreen();
-      expect(screen.getByText('Editar tarjeta')).toBeOnTheScreen();
+      expect(screen.getAllByText('Editar tarjeta')).toHaveLength(2);
       expect(campoAlias()).toHaveDisplayValue('Visa Oro');
       expect(guardar()).toBeEnabled();
     },

@@ -1,14 +1,16 @@
-import Tarjetas from '@/app/tarjetas';
 import { ApiError, NetworkError } from '@/lib/api/client';
 import {
   actualizarTarjeta,
   crearTarjeta,
   eliminarTarjeta,
   listarTarjetas,
+  obtenerProyeccion,
+  obtenerTarjeta,
   type Tarjeta,
 } from '@/lib/api/tarjetas';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { AMEX, crearServidorDeTarjetas, VISA, VISA_ID } from './ayudas/datos-tarjetas';
+import { mostrarDetalle } from './ayudas/detalle-tarjeta';
 import {
   boton,
   gestoAtras,
@@ -19,11 +21,21 @@ import {
   VER_TODO,
 } from './ayudas/tarjetas';
 
-// Eliminar una tarjeta con confirmación (criterios/05-tarjetas-pantallas.md, CA-RF24-F40 a F47). Mientras el diálogo
-// está abierto, la hoja y la lista quedan detrás: se miran con VER_TODO, igual que en la eliminación de movimientos.
-jest.mock('expo-router', () => ({ useRouter: () => ({ back: jest.fn(), push: jest.fn() }) }));
+// Eliminar una tarjeta con confirmación (criterios/05-tarjetas-pantallas.md, CA-RF24-F40 a F47), desde el detalle
+// de la tarjeta: al terminar, la app regresa a "Mis tarjetas" (criterios/05-detalle-de-tarjeta.md, CA-RF30-F26).
+// Mientras el diálogo está abierto, la hoja y el detalle quedan detrás: se miran con VER_TODO, igual que en la
+// eliminación de movimientos.
+const mockBack = jest.fn();
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ back: mockBack, push: jest.fn() }),
+  useLocalSearchParams: () => require('./ayudas/router-simulado').parametros,
+  useFocusEffect: require('./ayudas/router-simulado').useFocusEffectSimulado,
+}));
 jest.mock('@/lib/api/tarjetas', () => ({
   listarTarjetas: jest.fn(),
+  obtenerTarjeta: jest.fn(),
+  obtenerProyeccion: jest.fn(),
   crearTarjeta: jest.fn(),
   actualizarTarjeta: jest.fn(),
   eliminarTarjeta: jest.fn(),
@@ -45,18 +57,16 @@ const TEXTO = {
 let servidor: ReturnType<typeof crearServidorDeTarjetas>;
 
 const dialogoAbierto = () => screen.queryByText(TEXTO.dialogo) !== null;
-const hojaAbierta = () => screen.queryByText('Editar tarjeta', VER_TODO) !== null;
+// El campo "Alias" solo está en la hoja: el título "Editar tarjeta" también lo dice el botón del detalle
+const hojaAbierta = () => screen.queryByLabelText('Alias', VER_TODO) !== null;
 const hayVisa = () => screen.queryByText('Visa Bancolombia', VER_TODO) !== null;
 
 async function abrirDialogo(tarjetas: Tarjeta[] = [VISA, AMEX]) {
   servidor = crearServidorDeTarjetas(tarjetas);
-  listar.mockImplementation(servidor.listar);
   eliminar.mockImplementation(async (id) => servidor.eliminar(id));
-  await render(<Tarjetas />);
-  await fireEvent.press(
-    await screen.findByRole('button', { name: 'Visa Bancolombia, Tasa 29,21 % E.A.' }),
-  );
-  await screen.findByText('Editar tarjeta');
+  await mostrarDetalle({ servidor });
+  await fireEvent.press(boton('Editar tarjeta'));
+  await screen.findByText('Guardar tarjeta');
   await fireEvent.press(boton('Eliminar tarjeta'));
   await screen.findByText(TEXTO.dialogo);
 }
@@ -64,7 +74,10 @@ const sinDialogo = () => waitFor(() => expect(dialogoAbierto()).toBe(false));
 const sinHoja = () => waitFor(() => expect(hojaAbierta()).toBe(false));
 
 beforeEach(() => {
+  mockBack.mockReset();
   listar.mockReset().mockResolvedValue([]);
+  jest.mocked(obtenerTarjeta).mockReset();
+  jest.mocked(obtenerProyeccion).mockReset();
   crear.mockReset();
   actualizar.mockReset();
   eliminar.mockReset();
@@ -88,7 +101,6 @@ describe('Eliminar una tarjeta: confirmación', () => {
 
     await sinDialogo();
     expect(eliminar).not.toHaveBeenCalled();
-    expect(screen.getByText('Editar tarjeta')).toBeOnTheScreen();
     expect(screen.getByLabelText('Alias')).toHaveDisplayValue('Visa Bancolombia');
   });
 
@@ -99,13 +111,12 @@ describe('Eliminar una tarjeta: confirmación', () => {
 
     await sinDialogo();
     expect(eliminar).not.toHaveBeenCalled();
-    expect(screen.getByText('Editar tarjeta')).toBeOnTheScreen();
     expect(screen.getByLabelText('Alias')).toHaveDisplayValue('Visa Bancolombia');
   });
 });
 
 describe('Eliminar una tarjeta: confirmar', () => {
-  it('CA-RF24-F42 confirmar elimina una sola vez, cierra diálogo y hoja, vuelve a pedir la lista y la tarjeta ya no aparece', async () => {
+  it('CA-RF24-F42 confirmar elimina una sola vez, cierra diálogo y hoja y regresa a "Mis tarjetas" sin volver a pedir nada', async () => {
     await abrirDialogo();
 
     await fireEvent.press(boton('Eliminar'));
@@ -114,20 +125,13 @@ describe('Eliminar una tarjeta: confirmar', () => {
     expect(eliminar).toHaveBeenCalledWith(VISA_ID);
     await sinDialogo();
     await sinHoja();
-    await waitFor(() => expect(listar).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(hayVisa()).toBe(false));
-    expect(screen.getByText('Amex')).toBeOnTheScreen();
-  });
-
-  it('CA-RF24-F42 si era la última tarjeta, la lista muestra el aviso de vacío', async () => {
-    await abrirDialogo([VISA]);
-
-    await fireEvent.press(boton('Eliminar'));
-
-    expect(
-      await screen.findByText('Todavía no tienes tarjetas. Agrega la primera para empezar.'),
-    ).toBeOnTheScreen();
-    expect(hayVisa()).toBe(false);
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(obtenerTarjeta).toHaveBeenCalledTimes(1);
+    expect(obtenerProyeccion).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Esta tarjeta ya no existe.')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('CA-RF24-F43 mientras elimina, "Eliminar" muestra un indicador, los dos botones no se pueden tocar y un doble toque no repite', async () => {
@@ -172,7 +176,7 @@ describe('Eliminar una tarjeta: cuando algo falla', () => {
     expect(eliminar).toHaveBeenCalledTimes(1);
   });
 
-  it('CA-RF24-F45 si la tarjeta ya estaba eliminada (404) cierra diálogo y hoja y deja de mostrarla, sin aviso de error', async () => {
+  it('CA-RF24-F45 si la tarjeta ya estaba eliminada (404) cierra diálogo y hoja y regresa a "Mis tarjetas", sin aviso de error', async () => {
     await abrirDialogo();
     eliminar.mockImplementationOnce(async () => {
       servidor.items = servidor.items.filter((t) => t.id !== VISA_ID);
@@ -183,9 +187,13 @@ describe('Eliminar una tarjeta: cuando algo falla', () => {
 
     await sinDialogo();
     await sinHoja();
-    await waitFor(() => expect(hayVisa()).toBe(false));
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(obtenerTarjeta).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByText(TEXTO.errorEliminar)).toBeNull();
+    expect(screen.queryByText('Esta tarjeta ya no existe.')).toBeNull();
   });
 
   it('CA-RF24-F46 sin conexión avisa dentro del diálogo, "Eliminar" vuelve a estar disponible y la tarjeta sigue', async () => {
@@ -219,7 +227,7 @@ describe('Eliminar una tarjeta: cuando algo falla', () => {
 
       await waitFor(() => expect(eliminar).toHaveBeenCalledTimes(2));
       await sinDialogo();
-      await waitFor(() => expect(hayVisa()).toBe(false));
+      await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
     },
   );
 

@@ -1,3 +1,4 @@
+import { ApiError } from '@/lib/api/client';
 import type { CargoFijo, Tarjeta } from '@/lib/api/tarjetas';
 
 // Datos y servidor en memoria para las pruebas de las pantallas de tarjetas y cargos fijos
@@ -61,6 +62,12 @@ export function crearServidorDeTarjetas(inicial: Tarjeta[]) {
     items: inicial.map((t) => ({ ...t })) as Tarjeta[],
     ordenadas: (): Tarjeta[] => [...servidor.items].sort(porNombre).map((t) => ({ ...t })),
     listar: async (): Promise<Tarjeta[]> => servidor.ordenadas(),
+    /** GET /tarjetas/:id: la tarjeta tal como está ahora, o 404 si ya no existe (criterios/05-detalle-de-tarjeta.md). */
+    obtener: async (id: string): Promise<Tarjeta> => {
+      const tarjeta = servidor.items.find((t) => t.id === id);
+      if (!tarjeta) throw new ApiError(404, 'Tarjeta no encontrada');
+      return { ...tarjeta };
+    },
     crear: async (
       datos: Pick<Tarjeta, 'nombre' | 'tasaEA' | 'cuotaUnicaSinInteres'>,
     ): Promise<Tarjeta> => {

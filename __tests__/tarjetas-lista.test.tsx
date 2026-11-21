@@ -5,13 +5,18 @@ import {
   crearTarjeta,
   eliminarTarjeta,
   listarTarjetas,
+  obtenerProyeccion,
+  obtenerTarjeta,
   type Tarjeta,
 } from '@/lib/api/tarjetas';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AMEX, crearServidorDeTarjetas, VISA, VISA_ID } from './ayudas/datos-tarjetas';
+import { mostrarDetalle } from './ayudas/detalle-tarjeta';
+import { volverAlFoco } from './ayudas/router-simulado';
 import {
   boton,
   interruptor,
+  laHoja,
   pendiente,
   RED,
   TECNICO,
@@ -22,13 +27,21 @@ import {
 } from './ayudas/tarjetas';
 
 // Pantalla "Mis tarjetas": la lista y cómo se abre el formulario (criterios/05-tarjetas-pantallas.md, CA-RF24-F03
-// a F13, F48 a F51). El backend se simula en el borde del adaptador (lib/api/tarjetas).
+// a F12, F48 a F51; la fila abre el detalle desde el paquete 5.3.3: criterios/05-detalle-de-tarjeta.md, CA-RF30-F01
+// y F29). El formulario de editar se abre desde el detalle de la tarjeta. El backend se simula en el borde del
+// adaptador (lib/api/tarjetas).
 const mockBack = jest.fn();
 const mockPush = jest.fn();
 
-jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, push: mockPush }) }));
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ back: mockBack, push: mockPush }),
+  useLocalSearchParams: () => require('./ayudas/router-simulado').parametros,
+  useFocusEffect: require('./ayudas/router-simulado').useFocusEffectSimulado,
+}));
 jest.mock('@/lib/api/tarjetas', () => ({
   listarTarjetas: jest.fn(),
+  obtenerTarjeta: jest.fn(),
+  obtenerProyeccion: jest.fn(),
   crearTarjeta: jest.fn(),
   actualizarTarjeta: jest.fn(),
   eliminarTarjeta: jest.fn(),
@@ -59,11 +72,13 @@ async function mostrar(tarjetas: Tarjeta[] = [VISA, AMEX]) {
   await screen.findByRole('button', { name: '+ Agregar tarjeta' });
   return servidor;
 }
+/** El formulario de editar se abre desde el detalle de la tarjeta (botón "Editar tarjeta"). */
 async function abrirEdicion() {
-  await mostrar();
-  await fireEvent.press(filaDe(VISA, '29,21'));
-  await screen.findByText('Editar tarjeta');
+  await mostrarDetalle({ servidor: crearServidorDeTarjetas([VISA, AMEX]) });
+  await fireEvent.press(boton('Editar tarjeta'));
+  await screen.findByText('Guardar tarjeta');
 }
+const hojaAbierta = () => screen.queryByLabelText('Alias', VER_TODO) !== null;
 async function abrirNueva() {
   await mostrar();
   await fireEvent.press(agregar());
@@ -79,6 +94,8 @@ beforeEach(() => {
   mockBack.mockClear();
   mockPush.mockClear();
   listar.mockReset().mockResolvedValue([]);
+  jest.mocked(obtenerTarjeta).mockReset();
+  jest.mocked(obtenerProyeccion).mockReset();
   crear.mockReset();
   actualizar.mockReset();
   eliminar.mockReset();
@@ -242,30 +259,97 @@ describe('Mis tarjetas: lo que se ve según haya o no tarjetas', () => {
     },
   );
 
-  it('CA-RF24-F13 tocar una fila abre "Editar tarjeta" con los datos de esa tarjeta, sin llamar al backend', async () => {
+  it.each([
+    ['Visa Bancolombia', VISA, '29,21'],
+    ['Amex', AMEX, '24,21'],
+  ])(
+    'CA-RF30-F01 tocar la fila "%s" abre el detalle de esa tarjeta, una sola vez, sin abrir la hoja ni llamar al backend',
+    async (_nombre, tarjeta, tasa) => {
+      await mostrar();
+
+      await fireEvent.press(filaDe(tarjeta, tasa));
+
+      expect(mockPush).toHaveBeenCalledTimes(1);
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/tarjetas/[id]',
+        params: { id: tarjeta.id, nombre: tarjeta.nombre },
+      });
+      expect(screen.queryByText('Editar tarjeta', VER_TODO)).toBeNull();
+      expect(hojaAbierta()).toBe(false);
+      expect(listar).toHaveBeenCalledTimes(1);
+      expect(obtenerTarjeta).not.toHaveBeenCalled();
+      expect(obtenerProyeccion).not.toHaveBeenCalled();
+      expect(crear).not.toHaveBeenCalled();
+      expect(actualizar).not.toHaveBeenCalled();
+      expect(eliminar).not.toHaveBeenCalled();
+    },
+  );
+
+  it('CA-RF30-F01 "+ Agregar tarjeta" sigue abriendo la hoja "Nueva tarjeta" sobre la lista, sin navegar', async () => {
     await mostrar();
 
-    await fireEvent.press(filaDe(VISA, '29,21'));
+    await fireEvent.press(agregar());
 
-    expect(await screen.findByText('Editar tarjeta')).toBeOnTheScreen();
-    expect(campoAlias()).toHaveDisplayValue('Visa Bancolombia');
-    expect(campoTasa()).toHaveDisplayValue('29,21');
-    expect(interruptor('Compras a 1 cuota sin intereses')).toBeChecked();
+    expect(await screen.findByText('Nueva tarjeta')).toBeOnTheScreen();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+describe('Mis tarjetas: al volver de un detalle (la pantalla recupera el foco)', () => {
+  it('CA-RF30-F29 vuelve a pedir la lista y muestra el nombre y la tasa nuevos, sin duplicar la fila', async () => {
+    const servidor = await mostrar();
     expect(listar).toHaveBeenCalledTimes(1);
-    expect(crear).not.toHaveBeenCalled();
-    expect(actualizar).not.toHaveBeenCalled();
-    expect(eliminar).not.toHaveBeenCalled();
+    await servidor.actualizar(VISA_ID, { nombre: 'Visa Oro', tasaEA: 0.315 });
+
+    await volverAlFoco();
+
+    await waitFor(() => expect(listar).toHaveBeenCalledTimes(2));
+    expect(await screen.findAllByText('Visa Oro')).toHaveLength(1);
+    expect(screen.getByText('Tasa 31,5 % E.A.')).toBeOnTheScreen();
+    expect(screen.queryByText('Visa Bancolombia')).toBeNull();
+    expect(screen.queryByText('Tasa 29,21 % E.A.')).toBeNull();
+    expect(screen.getByText('Amex')).toBeOnTheScreen();
+    expect(screen.getAllByText(/^Tasa /)).toHaveLength(2);
   });
 
-  it('CA-RF24-F13 con otra tarjeta (interruptor apagado) muestra los datos de esa otra', async () => {
+  it('CA-RF30-F29 la tarjeta eliminada ya no aparece al volver', async () => {
+    const servidor = await mostrar();
+    await servidor.eliminar(VISA_ID);
+
+    await volverAlFoco();
+
+    await waitFor(() => expect(screen.queryByText('Visa Bancolombia')).toBeNull());
+    expect(listar).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Amex')).toBeOnTheScreen();
+  });
+
+  it('CA-RF30-F29 si era la última tarjeta, al volver se ve el aviso de vacío', async () => {
+    const servidor = await mostrar([VISA]);
+    await servidor.eliminar(VISA_ID);
+
+    await volverAlFoco();
+
+    expect(await screen.findByText(TEXTO.vacio)).toBeOnTheScreen();
+    expect(screen.queryByText('Visa Bancolombia')).toBeNull();
+    expect(screen.queryByText(/^Tasa /)).toBeNull();
+  });
+
+  it('CA-RF30-F29 mientras se vuelve a pedir se siguen viendo las filas que ya estaban, sin indicador de carga', async () => {
     await mostrar();
+    const nueva = pendiente<Tarjeta[]>();
+    listar.mockReturnValueOnce(nueva.promesa);
 
-    await fireEvent.press(filaDe(AMEX, '24,21'));
+    await volverAlFoco();
 
-    await screen.findByText('Editar tarjeta');
-    expect(campoAlias()).toHaveDisplayValue('Amex');
-    expect(campoTasa()).toHaveDisplayValue('24,21');
-    expect(interruptor('Compras a 1 cuota sin intereses')).not.toBeChecked();
+    expect(listar).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Visa Bancolombia')).toBeOnTheScreen();
+    expect(screen.getByText('Amex')).toBeOnTheScreen();
+    expect(screen.queryByLabelText(TEXTO.cargando)).toBeNull();
+
+    await act(async () => nueva.resolver([{ ...AMEX }]));
+
+    await waitFor(() => expect(screen.queryByText('Visa Bancolombia')).toBeNull());
+    expect(screen.getByText('Amex')).toBeOnTheScreen();
   });
 });
 
@@ -281,7 +365,7 @@ describe('Mis tarjetas: ir a los cargos fijos', () => {
       pathname: '/tarjetas/[id]/cargos',
       params: { id: VISA_ID, nombre: 'Visa Bancolombia' },
     });
-    await waitFor(() => expect(screen.queryByText('Editar tarjeta')).toBeNull());
+    await waitFor(() => expect(hojaAbierta()).toBe(false));
     expect(actualizar).not.toHaveBeenCalled();
     expect(crear).not.toHaveBeenCalled();
     expect(eliminar).not.toHaveBeenCalled();
@@ -291,11 +375,12 @@ describe('Mis tarjetas: ir a los cargos fijos', () => {
     await abrirEdicion();
     await fireEvent.changeText(campoAlias(), 'Otro alias');
     await fireEvent.press(boton('Cargos fijos'));
-    await waitFor(() => expect(screen.queryByText('Editar tarjeta')).toBeNull());
+    await waitFor(() => expect(hojaAbierta()).toBe(false));
 
-    await fireEvent.press(filaDe(VISA, '29,21'));
+    // Al volver a abrir la hoja desde el detalle, se ve el alias guardado
+    await fireEvent.press(boton('Editar tarjeta'));
 
-    await screen.findByText('Editar tarjeta');
+    await screen.findByText('Guardar tarjeta');
     expect(campoAlias()).toHaveDisplayValue('Visa Bancolombia');
   });
 });
@@ -366,11 +451,12 @@ describe('Mis tarjetas: accesibilidad y lenguaje (RNF-04, RNF-06, RNF-11)', () =
   it('CA-RF24-F51 la lista y los formularios no calculan ni muestran ningún monto en pesos', async () => {
     await mostrar();
     expect(textosEnOrden().join(' ')).not.toContain('$');
+    await screen.unmount();
 
-    await fireEvent.press(filaDe(VISA, '29,21'));
-    await screen.findByText('Editar tarjeta');
+    // El formulario de editar se abre desde el detalle, que sí muestra montos del backend: se mira solo la hoja
+    await abrirEdicion();
 
-    expect(textosEnOrden().join(' ')).not.toContain('$');
-    expect(screen.queryByText(/deuda|cuota estimada|total/i, VER_TODO)).toBeNull();
+    expect(laHoja().queryByText(/\$/)).toBeNull();
+    expect(laHoja().queryByText(/deuda|cuota estimada|total/i)).toBeNull();
   });
 });

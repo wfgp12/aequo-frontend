@@ -10,7 +10,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 
 **Fuera de este paquete (queda anotado, no se prueba aquí):**
 - El recuadro "Deuda total en tarjetas", la deuda por fila y "Corte … · Pago …": sin datos en la API (decisión de arriba). La deuda llega con 5.3.
-- El "Detalle de tarjeta" (deuda, cupo disponible, próximo pago, cuotas pendientes, "Marcar como pagada"): paquete 5.3.3. Por ahora tocar una fila abre el formulario de editar; el detalle lo reemplazará después.
+- ~~El "Detalle de tarjeta"~~: lo cubre el paquete 5.3.3 (`05-detalle-de-tarjeta.md`, total del mes y proyección, sin cupo, fechas, deuda total ni "Marcar como pagada"). Desde ese paquete, tocar una fila abre el detalle y el formulario de editar se abre con el botón "Editar tarjeta" del detalle.
 - ~~El registro de compras con tarjeta, cuotas y avance en efectivo~~: ya no está pendiente, lo cubre el paquete 5.2.4 (`05-compra-con-tarjeta.md`). Listar, editar y eliminar compras y avances sigue fuera.
 - La versión de escritorio (tabla y panel lateral, 1280 px), el modal de confirmar eliminación de 1280 px, la barra de navegación inferior y el bottom sheet "Más": no existen todavía. La entrada es un botón en `app/index.tsx`, como "Reportes" y "Meta de ahorro".
 - Un interruptor "Activo" directamente en la lista de cargos: activar y desactivar se hace solo desde el formulario del cargo (decisión más abajo).
@@ -142,13 +142,9 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 - **Cuando** el usuario toca "+ Agregar tarjeta"
 - **Entonces** se abre la hoja "Nueva tarjeta" (CA-RF24-F14) con "Alias" y "Tasa de interés E.A." vacíos y el interruptor "Compras a 1 cuota sin intereses" apagado.
 
-### CA-RF24-F13 — Tocar una fila abre el mismo formulario con los datos de esa tarjeta
+### CA-RF24-F13 — Tocar una fila abre el detalle de esa tarjeta (reemplazado en 5.3.3)
 
-- **Dado** la lista con "Visa Bancolombia" (tasa `0.2921`, `cuotaUnicaSinInteres` `true`)
-- **Cuando** el usuario toca esa fila
-- **Entonces** se abre la hoja "Editar tarjeta" con "Alias" en "Visa Bancolombia", "Tasa de interés E.A." en "29,21" y el interruptor "Compras a 1 cuota sin intereses" encendido; no se llama al backend (los datos salen de la lista ya cargada).
-
-> Decisión (del arquitecto): tocar la fila abre el formulario de editar; el detalle con deuda y cuotas (5.3.3) lo reemplazará.
+> Reemplazado por CA-RF30-F01 (tocar una fila abre el detalle, `router.push({ pathname: '/tarjetas/[id]', params: { id, nombre } })`) y CA-RF30-F24 (el botón "Editar tarjeta" del detalle abre la hoja con "Alias" en "Visa Bancolombia", "Tasa de interés E.A." en "29,21" y el interruptor "Compras a 1 cuota sin intereses" encendido, sin llamar al backend). Hasta 5.1.3 la fila abría directamente el formulario de editar.
 
 ---
 
@@ -168,7 +164,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 
 - **Dado** la hoja abierta, con o sin cambios escritos
 - **Cuando** el usuario toca "Volver"
-- **Entonces** la hoja se cierra, no se envía nada al backend y la lista queda igual.
+- **Entonces** la hoja se cierra, no se envía nada al backend y la pantalla de abajo (la lista, o el detalle de la tarjeta si la hoja es "Editar tarjeta") queda igual.
 
 > Decisión: si el usuario escribió algo no se le pide confirmar antes de descartarlo (igual que la edición de movimientos, CA-RF08-03).
 
@@ -314,7 +310,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 
 - **Dado** la hoja "Editar tarjeta" de "Visa Bancolombia" con tasa `0.2921`
 - **Cuando** el usuario cambia la tasa a "31,5" y toca "Guardar tarjeta"
-- **Entonces** se llama a `actualizarTarjeta(id, { tasaEA: 0.315 })` (la misma ruta de editar; no hay otra para la tasa), y al volver a la lista la fila dice "Tasa 31,5 % E.A.".
+- **Entonces** se llama a `actualizarTarjeta(id, { tasaEA: 0.315 })` (la misma ruta de editar; no hay otra para la tasa), y el detalle de la tarjeta, desde donde se abre la hoja, muestra "Tasa 31,5 % E.A." (CA-RF30-F25; la lista lo muestra al volver a ella, CA-RF30-F29).
 - **Y** el nombre de la tarjeta y las demás tarjetas no cambian; la pantalla no cambia ni muestra ningún valor de compras anteriores (lo que pasa con las compras ya hechas lo decide el backend).
 
 ### CA-RF24-F31 — Guardar sin cambios no llama al backend
@@ -329,7 +325,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 
 - **Dado** que el backend responde `200` con la tarjeta editada
 - **Cuando** el usuario ve el resultado
-- **Entonces** la hoja se cierra, se vuelve a pedir la lista y la fila de esa tarjeta muestra el nombre y la tasa nuevos, sin que la tarjeta aparezca duplicada.
+- **Entonces** la hoja se cierra, se vuelve a pedir la tarjeta y el detalle muestra el título y la tasa nuevos (CA-RF30-F25), sin que quede el nombre anterior; la lista, al volver a ella, muestra la fila con el nombre y la tasa nuevos, sin duplicarla (CA-RF30-F29).
 
 ### CA-RF24-F33 — Doble toque al editar: una sola solicitud
 
@@ -354,7 +350,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 
 - **Dado** que el backend responde `404` ("Tarjeta no encontrada") a `actualizarTarjeta`
 - **Cuando** el usuario ve el resultado
-- **Entonces** ve "Esta tarjeta ya no existe." en la hoja y, al cerrarla con "Volver", la lista (que se vuelve a pedir) ya no la muestra.
+- **Entonces** ve "Esta tarjeta ya no existe." en la hoja y, al cerrarla con "Volver", el detalle (que vuelve a pedir la tarjeta) dice "Esta tarjeta ya no existe." (CA-RF30-F22); la lista ya no la muestra al volver a ella (CA-RF30-F29).
 
 > Decisión: calcada de CA-RF08-16 ("Este movimiento ya no existe.").
 
@@ -408,7 +404,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 
 - **Dado** el diálogo de confirmación abierto
 - **Cuando** el usuario toca "Eliminar" y el backend responde `204`
-- **Entonces** se llamó una sola vez a `eliminarTarjeta(id)`, el diálogo y la hoja se cierran, se vuelve a pedir la lista y esa tarjeta ya no aparece; si era la última, ve el aviso de vacío (CA-RF24-F09).
+- **Entonces** se llamó una sola vez a `eliminarTarjeta(id)`, el diálogo y la hoja se cierran y la app regresa a "Mis tarjetas" (`router.back()` una sola vez, CA-RF30-F26); la lista, al recuperar el foco, ya no muestra esa tarjeta y, si era la última, ve el aviso de vacío (CA-RF24-F09; CA-RF30-F29).
 
 ### CA-RF24-F43 — Mientras elimina ve un indicador; un doble toque no repite
 
@@ -428,7 +424,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 
 - **Dado** que el backend responde `404` a `eliminarTarjeta`
 - **Cuando** el usuario ve el resultado
-- **Entonces** el diálogo y la hoja se cierran y la tarjeta ya no aparece en la lista, sin aviso de error.
+- **Entonces** el diálogo y la hoja se cierran y la app regresa a "Mis tarjetas" (`router.back()`), donde la tarjeta ya no aparece (CA-RF30-F26 y F29), sin aviso de error.
 
 > Decisión: calcado de CA-RF08-23 y CA-RF21-F40.
 
@@ -450,7 +446,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 
 ### CA-RF24-F48 — "Cargos fijos" abre la pantalla de esa tarjeta
 
-- **Dado** la hoja "Editar tarjeta" de "Visa Bancolombia" (id `66a0b3c4d5e6f70012ab34cd`)
+- **Dado** la hoja "Editar tarjeta" de "Visa Bancolombia" (id `66a0b3c4d5e6f70012ab34cd`), abierta desde el detalle de la tarjeta
 - **Cuando** el usuario toca "Cargos fijos"
 - **Entonces** la hoja se cierra y la app navega a `/tarjetas/66a0b3c4d5e6f70012ab34cd/cargos` con el nombre "Visa Bancolombia" (`router.push({ pathname: '/tarjetas/[id]/cargos', params: { id, nombre } })`); no se envía nada al backend ni se guarda lo escrito en el formulario.
 
@@ -474,7 +470,7 @@ Cubre RF-24 (registrar tarjetas), RF-25 (cambiar la tasa), RF-29 (cargos fijos d
 
 ### CA-RF24-F51 — El frontend no calcula: ni deuda, ni cuotas, ni cupo
 
-- **Dado** la lista y los formularios de tarjetas, con cualquier dato que responda el backend
+- **Dado** la lista y la hoja del formulario de tarjetas (el detalle sí muestra montos que entrega el backend: `05-detalle-de-tarjeta.md`), con cualquier dato que responda el backend
 - **Cuando** el usuario los ve
 - **Entonces** no hay ningún monto en pesos derivado (no hay deuda, cupo, cuota ni total de las tarjetas); lo único que la pantalla transforma es la tasa entre porcentaje y fracción (CA-RF24-F23 y F24).
 
