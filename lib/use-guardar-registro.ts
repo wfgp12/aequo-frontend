@@ -38,5 +38,6 @@ export function useGuardarRegistro<R>() {
     }
   }
 
-  return { guardando, error, guardado, guardar };
+  /** Para avisar algo antes de enviar (un dato que falta) o quitar el aviso al cambiar lo escrito (`null`). */
+  return { guardando, error, guardado, guardar, avisar: setError };
 }

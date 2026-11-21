@@ -10,9 +10,14 @@ const OPCIONES: OpcionDeMetodo[] = [
   { etiqueta: 'Transferencia', valor: 'TRANSFERENCIA' },
 ];
 
+/** Los métodos con que se paga algo ya existente: una tarjeta no se paga con otra tarjeta de crédito. */
+export const METODOS_SIN_CREDITO = OPCIONES.filter(
+  (o): o is { etiqueta: string; valor: MetodoPago } => o.valor !== 'TARJETA_CREDITO',
+);
+
 /** Opciones del selector: la tarjeta de crédito solo aplica a los egresos. */
 export function opcionesDeMetodo(tipo: TipoMovimiento) {
-  return tipo === 'EGRESO' ? OPCIONES : OPCIONES.filter((o) => o.valor !== 'TARJETA_CREDITO');
+  return tipo === 'EGRESO' ? OPCIONES : METODOS_SIN_CREDITO;
 }
 
 /** Al editar un movimiento no se puede pasar a tarjeta: una compra con tarjeta no es un movimiento. */

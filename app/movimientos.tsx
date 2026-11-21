@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import type { TransaccionListada } from '@/lib/api/transacciones';
 import { encabezadoDeDia, hoy } from '@/lib/fechas';
-import { agruparPorDia, esDineroRecibido } from '@/lib/movimientos';
+import { agruparPorDia, esEditable } from '@/lib/movimientos';
 import { useMovimientos } from '@/lib/use-movimientos';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -81,7 +81,7 @@ export default function Movimientos() {
             renderItem={({ item }) => (
               <FilaMovimiento
                 item={item}
-                onPress={esDineroRecibido(item) ? undefined : () => setEditando(item)}
+                onPress={esEditable(item) ? () => setEditando(item) : undefined}
               />
             )}
             stickySectionHeadersEnabled={false}

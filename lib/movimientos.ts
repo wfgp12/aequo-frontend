@@ -33,19 +33,30 @@ export function montoConSigno(item: Pick<TransaccionListada, 'tipo' | 'monto'>) 
   return `${item.tipo === 'INGRESO' ? '+' : '−'} $ ${formatearPesos(item.monto)}`;
 }
 
-/** Título de la fila: la nota si la hay; si no, la categoría. */
+/** Cómo se llaman los movimientos que no son ordinarios: no tienen categoría y se gestionan en su módulo. */
+const ETIQUETA_DE_CLASIFICACION: Partial<Record<TransaccionListada['clasificacionFlujo'], string>> =
+  {
+    DINERO_RECIBIDO: 'Dinero recibido',
+    PAGO_TARJETA: 'Pago de tarjeta',
+    ABONO_DEUDA: 'Abono a una deuda',
+  };
+
+/** Solo los movimientos ordinarios se editan o eliminan desde Movimientos (dinero recibido, pagos y abonos, no). */
+export const esEditable = (item: Pick<TransaccionListada, 'clasificacionFlujo'>) =>
+  item.clasificacionFlujo === 'ORDINARIO';
+
+/** Título de la fila: la nota si la hay; si no, la categoría (un pago de tarjeta no tiene: "Pago de tarjeta"). */
 export function tituloDelMovimiento(item: TransaccionListada) {
-  return item.descripcion || item.categoria?.nombre || 'Sin categoría';
+  const sinCategoria =
+    item.clasificacionFlujo === 'PAGO_TARJETA' ? 'Pago de tarjeta' : 'Sin categoría';
+  return item.descripcion || item.categoria?.nombre || sinCategoria;
 }
 
-/** El dinero recibido (de un avance o un préstamo) no se edita ni se elimina desde Movimientos. */
-export const esDineroRecibido = (item: Pick<TransaccionListada, 'clasificacionFlujo'>) =>
-  item.clasificacionFlujo === 'DINERO_RECIBIDO';
-
-/** Subtítulo: "Categoría · Método"; sin nota, el título ya es la categoría y solo queda el método. */
+/** Subtítulo: "Categoría · Método" ("Pago de tarjeta · Método" y similares si no es ordinario); sin nota, solo el método. */
 export function subtituloDelMovimiento(item: TransaccionListada) {
   const metodo = ETIQUETA_METODO[item.metodoPago];
-  if (esDineroRecibido(item)) return `Dinero recibido · ${metodo}`;
+  const clasificacion = ETIQUETA_DE_CLASIFICACION[item.clasificacionFlujo];
+  if (clasificacion) return `${clasificacion} · ${metodo}`;
   return item.descripcion && item.categoria ? `${item.categoria.nombre} · ${metodo}` : metodo;
 }
 

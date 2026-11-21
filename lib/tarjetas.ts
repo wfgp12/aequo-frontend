@@ -1,8 +1,19 @@
 import { ApiError } from '@/lib/api/client';
-import type { CargoFijo, CuotaPrevia, DatosCargo, DatosTarjeta, Tarjeta } from '@/lib/api/tarjetas';
+import type {
+  CargoFijo,
+  CuotaPrevia,
+  DatosCargo,
+  DatosPago,
+  DatosTarjeta,
+  PagoTarjeta,
+  ProyeccionTarjeta,
+  Tarjeta,
+} from '@/lib/api/tarjetas';
+import type { MetodoPago } from '@/lib/api/transacciones';
 import { formatearPesos } from '@/lib/dinero';
 import { esApi, mensajeDeFallo } from '@/lib/errores';
-import { mesActual, mesEnLetras } from '@/lib/fechas';
+import { fechaCorta, mesActual, mesEnLetras } from '@/lib/fechas';
+import { ETIQUETA_METODO } from '@/lib/movimientos';
 import { fraccionAPorcentaje, porcentajeAFraccion } from '@/lib/tasa';
 import type { Fallo } from '@/lib/use-lista-remota';
 import type { Lectura } from '@/lib/use-guardar-hoja';
@@ -162,7 +173,7 @@ const noEncontrado = (e: unknown, mensaje: string) =>
   e instanceof ApiError && e.status === 404 && e.message === mensaje;
 
 /** El 409 es el primer intento todavía en proceso con la misma clave; el 404 distingue qué ya no existe. */
-export function mensajeAlGuardarCompra(e: unknown, cosa: 'compra' | 'avance') {
+export function mensajeAlGuardarCompra(e: unknown, cosa: 'compra' | 'avance' | 'pago') {
   if (esApi(e, 409)) {
     return `Tu ${cosa} todavía se está guardando. Espera unos segundos e inténtalo de nuevo.`;
   }
@@ -197,3 +208,43 @@ export const fallosDeCargos = fallosDeUnaTarjeta(
 export const fallosDeDetalle = fallosDeUnaTarjeta(
   'No pudimos cargar tu tarjeta. Inténtalo de nuevo en unos minutos.',
 );
+
+// --- Pagos de la tarjeta: lo que se escribe, se muestra y se explica ---
+
+/** Lo escrito en la hoja "Nuevo pago": el valor en pesos enteros; la nota solo viaja si trae algo (con `null` el backend da 400). */
+export function leerPago(
+  valor: string,
+  fecha: string,
+  metodoPago: MetodoPago,
+  nota: string,
+): Lectura<DatosPago> {
+  if (!(Number(valor) > 0)) return { error: 'Escribe un valor mayor que cero.' };
+  const descripcion = nota.trim();
+  return {
+    datos: { valor: Number(valor), fecha, metodoPago, ...(descripcion ? { descripcion } : {}) },
+  };
+}
+
+/** El valor con que empieza la hoja: el total estimado de hoy, redondeado al peso; en otro mes, o sin cifras, vacío. */
+export function valorSugeridoDelPago(proyeccion: ProyeccionTarjeta | null) {
+  if (proyeccion?.mes !== mesActual()) return '';
+  const pesos = Math.round(proyeccion.total);
+  return pesos > 0 ? String(pesos) : '';
+}
+
+/** "Te falta pagar $ X", "Pagaste de más $ X" o "Pagaste justo lo estimado" (menos de medio peso cuenta como justo). */
+export function textoDeDiferencia(diferencia: number) {
+  const pesos = formatearPesos(Math.abs(diferencia));
+  if (pesos === '0') return 'Pagaste justo lo estimado';
+  return diferencia < 0 ? `Te falta pagar $ ${pesos}` : `Pagaste de más $ ${pesos}`;
+}
+
+export const mensajeAlGuardarPago = (e: unknown) =>
+  esApi(e, 404) ? 'Esta tarjeta ya no existe.' : mensajeAlGuardarCompra(e, 'pago');
+
+export const mensajeAlEliminarPago = (e: unknown) =>
+  mensajeDeFallo(e, 'No pudimos eliminar el pago. Inténtalo de nuevo en unos minutos.');
+
+/** "Hoy · Transferencia" o "15 de noviembre de 2026 · Transferencia". */
+export const fechaYMetodoDelPago = (pago: Pick<PagoTarjeta, 'fecha' | 'metodoPago'>) =>
+  `${fechaCorta(pago.fecha)} · ${ETIQUETA_METODO[pago.metodoPago]}`;
