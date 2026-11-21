@@ -29,6 +29,9 @@ jest.mock('@/lib/api/tarjetas', () => ({
   crearTarjeta: jest.fn(),
   actualizarTarjeta: jest.fn(),
   eliminarTarjeta: jest.fn(),
+  listarPagos: jest.fn(),
+  registrarPago: jest.fn(),
+  eliminarPago: jest.fn(),
 }));
 
 beforeEach(() => {
@@ -101,7 +104,8 @@ describe('Detalle de la tarjeta: solo redondea al peso al mostrar (RNF-11)', () 
       proyeccion: (mes) => proyeccionDe(mes, { total, cuotas: total, saldoPendiente: 7000 }),
     });
 
-    expect(screen.getByText(visto)).toBeOnTheScreen();
+    // Con un total de "$ 0" que no es 0 de verdad (0,4), "Este mes has pagado" también dice "$ 0" (CA-RF32-F25)
+    expect(screen.getAllByText(visto)[0]).toBeOnTheScreen();
   });
 
   it('CA-RF30-F13 nunca se ven decimales ni "NaN" en ninguna cifra', async () => {

@@ -3,6 +3,7 @@ import {
   actualizarTarjeta,
   crearTarjeta,
   eliminarTarjeta,
+  listarPagos,
   listarTarjetas,
   type ProyeccionTarjeta,
   type Tarjeta,
@@ -17,6 +18,7 @@ import {
   hayBoton,
   hayCargando,
   hayTexto,
+  mesesDePagosPedidos,
   mesesPedidos,
   mostrarDetalle,
   plano,
@@ -44,6 +46,9 @@ jest.mock('@/lib/api/tarjetas', () => ({
   crearTarjeta: jest.fn(),
   actualizarTarjeta: jest.fn(),
   eliminarTarjeta: jest.fn(),
+  listarPagos: jest.fn(),
+  registrarPago: jest.fn(),
+  eliminarPago: jest.fn(),
 }));
 
 beforeEach(() => {
@@ -203,6 +208,8 @@ describe('Detalle de la tarjeta: "Reintentar"', () => {
     expect(proyeccionPedida()).toHaveBeenCalledTimes(2);
     expect(proyeccionPedida()).toHaveBeenLastCalledWith(VISA_ID, '2026-11');
     expect(tarjetaPedida()).toHaveBeenCalledTimes(1);
+    // Solo se vuelve a pedir lo que falló: los pagos del mes ya habían llegado (CA-RF32-F33)
+    expect(listarPagos).toHaveBeenCalledTimes(1);
 
     await act(async () => nueva.resolver({ ...ANTES_DEL_PRIMER_PAGO }));
 
@@ -229,6 +236,7 @@ describe('Detalle de la tarjeta: "Reintentar"', () => {
     expect(screen.getByText(TEXTO.esteMes)).toBeOnTheScreen();
     expect(tarjetaPedida()).toHaveBeenCalledTimes(2);
     expect(proyeccionPedida()).toHaveBeenCalledTimes(1);
+    expect(listarPagos).toHaveBeenCalledTimes(1);
   });
 
   it('CA-RF30-F20 si fallaron las dos, "Reintentar" las vuelve a pedir una vez cada una', async () => {
@@ -242,6 +250,7 @@ describe('Detalle de la tarjeta: "Reintentar"', () => {
     await screen.findByRole('button', { name: 'Editar tarjeta' });
     expect(tarjetaPedida()).toHaveBeenCalledTimes(2);
     expect(proyeccionPedida()).toHaveBeenCalledTimes(2);
+    expect(listarPagos).toHaveBeenCalledTimes(1);
     expect(await screen.findByText(TEXTO.esteMes)).toBeOnTheScreen();
   });
 
@@ -255,6 +264,8 @@ describe('Detalle de la tarjeta: "Reintentar"', () => {
 
     await waitFor(() => expect(proyeccionPedida()).toHaveBeenCalledTimes(3));
     expect(mesesPedidos()).toEqual(['2026-11', '2026-10', '2026-10']);
+    // Los pagos de octubre llegaron bien: no se vuelven a pedir al reintentar (CA-RF32-F33)
+    expect(mesesDePagosPedidos()).toEqual(['2026-11', '2026-10']);
     expect(screen.getByText('octubre 2026')).toBeOnTheScreen();
     expect(await screen.findByText('Pagas en octubre 2026')).toBeOnTheScreen();
   });

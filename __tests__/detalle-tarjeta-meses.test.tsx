@@ -3,6 +3,7 @@ import {
   actualizarTarjeta,
   crearTarjeta,
   eliminarTarjeta,
+  listarPagos,
   listarTarjetas,
   type ProyeccionTarjeta,
 } from '@/lib/api/tarjetas';
@@ -15,6 +16,7 @@ import {
   hayCargando,
   hayTexto,
   mes,
+  mesesDePagosPedidos,
   mesesPedidos,
   mostrarDetalle,
   plano,
@@ -40,6 +42,9 @@ jest.mock('@/lib/api/tarjetas', () => ({
   crearTarjeta: jest.fn(),
   actualizarTarjeta: jest.fn(),
   eliminarTarjeta: jest.fn(),
+  listarPagos: jest.fn(),
+  registrarPago: jest.fn(),
+  eliminarPago: jest.fn(),
 }));
 
 beforeEach(() => {
@@ -75,6 +80,9 @@ describe('Detalle de la tarjeta: cambiar de mes', () => {
     expect(proyeccionPedida()).toHaveBeenCalledTimes(2);
     expect(proyeccionPedida()).toHaveBeenLastCalledWith(VISA_ID, '2026-10');
     expect(tarjetaPedida()).toHaveBeenCalledTimes(1);
+    // CA-RF32-F30: los pagos registrados también se piden, del mismo mes y una sola vez más
+    expect(listarPagos).toHaveBeenCalledTimes(2);
+    expect(listarPagos).toHaveBeenLastCalledWith(VISA_ID, '2026-10');
     await waitFor(() => expect(hayCargando()).toBe(false));
   });
 
@@ -85,6 +93,7 @@ describe('Detalle de la tarjeta: cambiar de mes', () => {
 
     expect(screen.getByText('diciembre 2026')).toBeOnTheScreen();
     expect(mesesPedidos()).toEqual(['2026-11', '2026-12']);
+    expect(mesesDePagosPedidos()).toEqual(['2026-11', '2026-12']);
     expect(tarjetaPedida()).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(hayCargando()).toBe(false));
   });
@@ -302,6 +311,9 @@ describe('Detalle de la tarjeta: al volver a la pantalla', () => {
 
     await waitFor(() => expect(proyeccionPedida()).toHaveBeenCalledTimes(2));
     expect(proyeccionPedida()).toHaveBeenLastCalledWith(VISA_ID, '2026-11');
+    // CA-RF32-F30: los pagos registrados se vuelven a pedir con el mismo mes
+    await waitFor(() => expect(listarPagos).toHaveBeenCalledTimes(2));
+    expect(listarPagos).toHaveBeenLastCalledWith(VISA_ID, '2026-11');
     expect(await screen.findByText('$ 301.270')).toBeOnTheScreen();
     expect(screen.queryByText('$ 346.270')).toBeNull();
     expect(screen.getByText('Cargos fijos $ 10.000')).toBeOnTheScreen();
@@ -320,6 +332,8 @@ describe('Detalle de la tarjeta: al volver a la pantalla', () => {
     expect(proyeccionPedida()).toHaveBeenLastCalledWith(VISA_ID, '2027-01');
     expect(screen.getByText('enero 2027')).toBeOnTheScreen();
     expect(mesesPedidos()).toEqual(['2026-11', '2026-12', '2027-01', '2027-01']);
+    await waitFor(() => expect(listarPagos).toHaveBeenCalledTimes(4));
+    expect(mesesDePagosPedidos()).toEqual(['2026-11', '2026-12', '2027-01', '2027-01']);
   });
 
   it('CA-RF30-F28 mientras llega la respuesta nueva se siguen viendo las cifras que ya estaban, sin indicador', async () => {

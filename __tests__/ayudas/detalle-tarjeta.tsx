@@ -1,8 +1,10 @@
 import { ApiError } from '@/lib/api/client';
 import {
+  listarPagos,
   obtenerProyeccion,
   obtenerTarjeta,
   type MesProyectado,
+  type PagoTarjeta,
   type ProyeccionTarjeta,
 } from '@/lib/api/tarjetas';
 import { render, screen, waitFor } from '@testing-library/react-native';
@@ -13,7 +15,8 @@ import { boton, textosEnOrden } from './tarjetas';
 // Ayudas compartidas por las pruebas del detalle de la tarjeta (criterios/05-detalle-de-tarjeta.md). No son
 // pruebas: Jest solo corre los archivos *.test.ts(x). Los `jest.mock` no se pueden compartir: cada archivo de
 // prueba simula `expo-router` (ver ./router-simulado) y `@/lib/api/tarjetas` con, al menos, `listarTarjetas`,
-// `obtenerTarjeta`, `obtenerProyeccion`, `crearTarjeta`, `actualizarTarjeta` y `eliminarTarjeta`.
+// `obtenerTarjeta`, `obtenerProyeccion`, `crearTarjeta`, `actualizarTarjeta`, `eliminarTarjeta`, `listarPagos`,
+// `registrarPago` y `eliminarPago` (criterios/05-pago-de-tarjeta.md: el detalle también pide los pagos del mes).
 
 export { VISA, VISA_ID };
 
@@ -51,11 +54,15 @@ export function mes(
   return { mes: periodo, cuotas, cargosFijos, total, saldoPendiente };
 }
 
+/**
+ * Lo que responde la proyección. Si el caso no habla de pagos, `pagado` es 0 y `diferencia` es `-total`
+ * (criterios/05-pago-de-tarjeta.md); la pantalla no verifica que cuadren.
+ */
 export function proyeccionDe(
   periodo: string,
   resto: Partial<ProyeccionTarjeta> = {},
 ): ProyeccionTarjeta {
-  return {
+  const base = {
     tarjetaId: VISA_ID,
     mes: periodo,
     cuotas: 0,
@@ -63,8 +70,10 @@ export function proyeccionDe(
     total: 0,
     saldoPendiente: 0,
     proyeccion: [],
+    pagado: 0,
     ...resto,
   };
+  return { ...base, diferencia: resto.diferencia ?? base.pagado - base.total };
 }
 
 export const CON_CUOTAS = proyeccionDe('2026-11', {
@@ -87,6 +96,34 @@ export const ANTES_DEL_PRIMER_PAGO = proyeccionDe('2026-11', {
 });
 export const SOLO_CARGOS = proyeccionDe('2026-11', { cargosFijos: 55000, total: 55000 });
 export const VACIA = proyeccionDe('2026-11');
+
+// Lo pagado frente a lo estimado (criterios/05-pago-de-tarjeta.md): el mismo total de CON_CUOTAS con distintos pagos
+export const SIN_PAGOS = CON_CUOTAS;
+export const PAGO_PARCIAL = { ...CON_CUOTAS, pagado: 100000, diferencia: -246270.05016469 };
+export const PAGO_EXACTO = { ...CON_CUOTAS, pagado: 346270.05016469, diferencia: 0 };
+export const PAGO_DE_MAS = { ...CON_CUOTAS, pagado: 400000, diferencia: 53729.94983531 };
+/** Un mes sin nada que pagar pero con un pago registrado. */
+export const PAGO_SIN_DEUDA = proyeccionDe('2026-11', { pagado: 50000, diferencia: 50000 });
+
+/** Un pago registrado de "Visa Bancolombia" (lo que entrega `listarPagos`, sin `comparacion`). */
+export const pagoDe = (id: string, parcial: Partial<PagoTarjeta> = {}): PagoTarjeta => ({
+  id,
+  tarjetaId: VISA_ID,
+  valor: 100000,
+  fecha: '2026-11-15',
+  metodoPago: 'TRANSFERENCIA',
+  descripcion: 'Pago de tarjeta',
+  creadaEn: '2026-11-15T17:00:00.000Z',
+  ...parcial,
+});
+export const PAGO_3 = pagoDe('pago-3');
+export const PAGO_2 = pagoDe('pago-2', {
+  valor: 50000,
+  fecha: '2026-11-10',
+  metodoPago: 'EFECTIVO',
+  descripcion: 'Abono de la quincena',
+  creadaEn: '2026-11-10T17:00:00.000Z',
+});
 
 // --- Textos de la pantalla ---
 
@@ -119,10 +156,12 @@ export type Opciones = {
   servidor?: Servidor;
   /** Lo que responde la proyección para cada mes (por defecto, CON_CUOTAS con el mes pedido). */
   proyeccion?: (periodo: string) => ProyeccionTarjeta | Promise<ProyeccionTarjeta>;
+  /** Lo que responde `listarPagos` para cada mes (por defecto, ninguno: `[]`). */
+  pagos?: (periodo: string | undefined) => PagoTarjeta[] | Promise<PagoTarjeta[]>;
 };
 
-/** Deja a `obtenerTarjeta` y `obtenerProyeccion` respondiendo bien (cada prueba cambia lo que necesite). */
-export function servirDetalle({ servidor, proyeccion }: Opciones = {}) {
+/** Deja a `obtenerTarjeta`, `obtenerProyeccion` y `listarPagos` respondiendo bien (cada prueba cambia lo que necesite). */
+export function servirDetalle({ servidor, proyeccion, pagos }: Opciones = {}) {
   const respuesta = proyeccion ?? ((periodo: string) => ({ ...CON_CUOTAS, mes: periodo }));
   jest
     .mocked(obtenerTarjeta)
@@ -137,12 +176,24 @@ export function servirDetalle({ servidor, proyeccion }: Opciones = {}) {
       }
       return respuesta(periodo);
     });
+  jest
+    .mocked(listarPagos)
+    .mockReset()
+    .mockImplementation(async (id, periodo) => {
+      if (servidor && !servidor.items.some((t) => t.id === id)) {
+        throw new ApiError(404, 'Tarjeta no encontrada');
+      }
+      return pagos ? pagos(periodo) : [];
+    });
 }
 
 export const tarjetaPedida = () => jest.mocked(obtenerTarjeta);
 export const proyeccionPedida = () => jest.mocked(obtenerProyeccion);
+export const pagosPedidos = () => jest.mocked(listarPagos);
 /** Los meses que se pidieron a la proyección, en orden. */
 export const mesesPedidos = () => proyeccionPedida().mock.calls.map(([, periodo]) => periodo);
+/** Los meses que se pidieron a la lista de pagos, en orden. */
+export const mesesDePagosPedidos = () => pagosPedidos().mock.calls.map(([, periodo]) => periodo);
 
 // --- La pantalla ---
 
