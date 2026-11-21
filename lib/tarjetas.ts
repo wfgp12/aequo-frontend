@@ -16,6 +16,12 @@ const MAX_DESCRIPCION = 100;
 /** "Tasa 29,21 % E.A." */
 export const textoDeTasa = (tasaEA: number) => `Tasa ${fraccionAPorcentaje(tasaEA)} % E.A.`;
 
+/** El encabezado del detalle: el nombre de la ruta se ve al instante y el de la tarjeta lo reemplaza al llegar. */
+export const encabezadoDeTarjeta = (tarjeta: Tarjeta | null, nombreDeLaRuta?: string) => ({
+  titulo: tarjeta?.nombre ?? (nombreDeLaRuta || 'Tarjeta'),
+  subtitulo: tarjeta ? textoDeTasa(tarjeta.tasaEA) : undefined,
+});
+
 /** "$ 45.000 al mes" */
 export const textoAlMes = (valor: number) => `$ ${formatearPesos(valor)} al mes`;
 
@@ -176,13 +182,18 @@ export const fallosDeCuotaPrevia = (e: unknown): Fallo =>
         reintentar: true,
       };
 
-export const fallosDeCargos = (e: unknown): Fallo =>
-  esApi(e, 404)
-    ? { mensaje: 'Esta tarjeta ya no existe.', reintentar: false }
-    : {
-        mensaje: mensajeDeFallo(
-          e,
-          'No pudimos cargar los cargos fijos. Inténtalo de nuevo en unos minutos.',
-        ),
-        reintentar: true,
-      };
+/** Repetir la consulta no ayuda si la tarjeta ya no existe; en los demás fallos sí. */
+const fallosDeUnaTarjeta =
+  (general: string) =>
+  (e: unknown): Fallo =>
+    esApi(e, 404)
+      ? { mensaje: 'Esta tarjeta ya no existe.', reintentar: false }
+      : { mensaje: mensajeDeFallo(e, general), reintentar: true };
+
+export const fallosDeCargos = fallosDeUnaTarjeta(
+  'No pudimos cargar los cargos fijos. Inténtalo de nuevo en unos minutos.',
+);
+
+export const fallosDeDetalle = fallosDeUnaTarjeta(
+  'No pudimos cargar tu tarjeta. Inténtalo de nuevo en unos minutos.',
+);

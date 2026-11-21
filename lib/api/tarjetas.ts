@@ -54,6 +54,27 @@ export type CuotaPrevia = Pick<
   'cuota' | 'mesUltimoPago' | 'tasaEAAplicada' | 'cuotaUnicaSinInteres'
 >;
 
+/** Lo que se paga en un mes con la tarjeta; todos los montos llegan sin redondear (se redondean al mostrarlos). */
+export type MesProyectado = {
+  /** YYYY-MM */
+  mes: string;
+  /** Suma de las cuotas vigentes en el mes (compras y avances). */
+  cuotas: number;
+  /** Suma de los cargos fijos activos. */
+  cargosFijos: number;
+  /** Cuotas más cargos fijos: el total estimado a pagar en el mes. */
+  total: number;
+  /** Cuotas de los meses posteriores, con intereses y sin cargos fijos. */
+  saldoPendiente: number;
+};
+
+/** Lo que responde GET /tarjetas/:tarjetaId/proyeccion: el mes pedido (`mes`) y los meses que le siguen. */
+export type ProyeccionTarjeta = MesProyectado & {
+  tarjetaId: string;
+  /** Los meses siguientes, contiguos, hasta el último con cuotas; vacío si no hay cuotas después de `mes`. */
+  proyeccion: MesProyectado[];
+};
+
 export type ConsultaCuota = Pick<CompraCredito, 'valor' | 'cuotas' | 'primerPago'>;
 
 export type DatosTarjeta = Pick<Tarjeta, 'nombre' | 'tasaEA' | 'cuotaUnicaSinInteres'>;
@@ -70,6 +91,11 @@ const rutaCargos = (tarjetaId: string) => `/tarjetas/${tarjetaId}/cargos`;
 export async function listarTarjetas(): Promise<Tarjeta[]> {
   const { items } = await requestAutenticado<{ items: Tarjeta[] }>('/tarjetas');
   return items;
+}
+
+/** GET /tarjetas/:id: la tarjeta tal como está ahora (404 si ya no existe). */
+export function obtenerTarjeta(id: string) {
+  return requestAutenticado<Tarjeta>(`/tarjetas/${id}`);
 }
 
 /** POST /tarjetas: la clave (UUID) identifica la acción del usuario; un reintento la reutiliza. */
@@ -146,4 +172,9 @@ export function obtenerCuotaPrevia(tarjetaId: string, consulta: ConsultaCuota) {
     primerPago,
   });
   return requestAutenticado<CuotaPrevia>(`/tarjetas/${tarjetaId}/cuota?${parametros}`);
+}
+
+/** GET /tarjetas/:tarjetaId/proyeccion?mes=YYYY-MM: lo que se paga ese mes y los siguientes; lectura sin clave. */
+export function obtenerProyeccion(tarjetaId: string, mes: string) {
+  return requestAutenticado<ProyeccionTarjeta>(`/tarjetas/${tarjetaId}/proyeccion?mes=${mes}`);
 }
