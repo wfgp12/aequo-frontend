@@ -3,6 +3,7 @@ import {
   actualizarMeta,
   crearMeta,
   eliminarMeta,
+  obtenerAhorroAcumulado,
   obtenerMetaDelMes,
   obtenerProgresoAhorro,
   type MetaAhorro,
@@ -22,6 +23,8 @@ jest.mock('@/lib/api/ahorro', () => ({
   crearMeta: jest.fn(),
   actualizarMeta: jest.fn(),
   eliminarMeta: jest.fn(),
+  obtenerAhorroAcumulado: jest.fn(),
+  guardarAhorroReal: jest.fn(),
 }));
 
 const obtener = jest.mocked(obtenerMetaDelMes);
@@ -64,7 +67,8 @@ const TEXTO = {
   yaExiste: 'Ya tienes una meta para este mes. Te mostramos la que está guardada.',
   yaNoExiste: 'Esta meta ya no existe. Vuelve a guardarla para crearla de nuevo.',
   errorGuardar: 'No pudimos guardar tu meta. Revisa el valor e inténtalo de nuevo.',
-  conAhorro: 'Esta meta ya tiene ahorro registrado y no se puede quitar.',
+  conAhorro:
+    'Ya anotaste ahorro en este mes, así que la meta no se puede quitar. Borra primero lo anotado.',
   errorQuitar: 'No pudimos quitar tu meta. Inténtalo de nuevo en unos minutos.',
   nota: 'Esta meta es para septiembre de 2026. Cada mes puedes fijar la tuya.',
   ayudaMonto:
@@ -176,6 +180,11 @@ beforeEach(() => {
     .mockReset()
     .mockImplementation(async (id, datos) => ({ ...BASE, id, ...datos }) as MetaAhorro);
   eliminar.mockReset().mockResolvedValue(undefined);
+  // El ahorro anotado (CA-RF23) tiene sus propias pruebas (ahorro-real-pantalla.test.tsx): aquí se queda cargando
+  jest
+    .mocked(obtenerAhorroAcumulado)
+    .mockReset()
+    .mockReturnValue(new Promise(() => {}));
 });
 
 afterEach(() => {

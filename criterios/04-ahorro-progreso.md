@@ -6,6 +6,7 @@ Cubre RF-22 (ver el monto disponible descontando de los ingresos los egresos y l
 
 **Fuera de este paquete (queda anotado, no se prueba aquí):**
 - El ahorro acumulado (RF-23, `GET /ahorro/acumulado`): el contrato dice que suma el `ahorroReal` guardado en cada meta y el formulario de la meta no lo envía, así que hoy el acumulado siempre sería 0. Se resuelve con el backend antes de construirlo.
+  > Actualizado (2026-11-26): resuelto y cubierto en `04-ahorro-real.md` (CA-RF23-F01 a F34).
 - El recuadro "Referencia: Tu ahorro promedio de los últimos 3 meses fue de…": lo cubren las recomendaciones (paquetes 4.2).
 - El seguimiento en el dashboard: es otro paquete. Esta tarjeta vive solo en la pantalla de la meta.
 - Escritorio (1280 px) y el selector de mes: la tarjeta trabaja solo con el mes actual, igual que el formulario.
@@ -55,6 +56,8 @@ Cubre RF-22 (ver el monto disponible descontando de los ingresos los egresos y l
 - **Dado** una sesión vigente y que hoy es el 17 de septiembre de 2026
 - **Cuando** el usuario abre "Meta de ahorro"
 - **Entonces** se llama a `obtenerProgresoAhorro('2026-09')` una sola vez (`GET /ahorro/progreso?mes=2026-09`) y también a `obtenerMetaDelMes('2026-09')` una sola vez; las dos consultas salen a la vez, sin que una espere a la otra; no se piden otros meses.
+
+> Actualizado en `04-ahorro-real.md` (2026-11-26): a la vez se pide también el ahorro acumulado hasta el mes actual (CA-RF23-F02).
 
 > Decisión (del arquitecto, para aprobar): el frontend manda siempre el mes explícito, el mismo mes del dispositivo que usa el formulario, y no depende del mes que el backend elegiría por su cuenta (según la zona horaria): así la tarjeta y el formulario siempre hablan del mismo mes. No se envía `X-Zona-Horaria`.
 
