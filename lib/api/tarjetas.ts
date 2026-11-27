@@ -68,6 +68,13 @@ export type MesProyectado = {
   saldoPendiente: number;
 };
 
+/** La cuota que una compra o un avance pone en el mes consultado. */
+export type CuotaDelMes = Pick<CompraCredito, 'descripcion' | 'tipo' | 'cuota'> & {
+  compraId: string;
+  numeroCuota: number;
+  totalCuotas: number;
+};
+
 /** Lo que responde GET /tarjetas/:tarjetaId/proyeccion: el mes pedido (`mes`) y los meses que le siguen. */
 export type ProyeccionTarjeta = MesProyectado & {
   tarjetaId: string;
@@ -75,6 +82,8 @@ export type ProyeccionTarjeta = MesProyectado & {
   pagado: number;
   /** `pagado` menos `total`, calculado por el backend: negativa, falta por pagar; positiva, se pagó de más. */
   diferencia: number;
+  /** Las cuotas de `mes`, compra por compra, de la más reciente a la más antigua; sin cargos fijos. */
+  detalle: CuotaDelMes[];
   /** Los meses siguientes, contiguos, hasta el último con cuotas; vacío si no hay cuotas después de `mes`. */
   proyeccion: MesProyectado[];
 };
