@@ -1,8 +1,10 @@
+import { AhorroAnotado } from '@/components/ahorro/ahorro-anotado';
 import { FormularioMeta } from '@/components/ahorro/formulario-meta';
 import { TarjetaProgresoAhorro } from '@/components/ahorro/tarjeta-progreso-ahorro';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { mesActual, nombreDelMes } from '@/lib/fechas';
+import { useAhorroAcumulado } from '@/lib/use-ahorro-acumulado';
 import { useMetaDelMes } from '@/lib/use-meta-del-mes';
 import { useProgresoAhorro } from '@/lib/use-progreso-ahorro';
 import { useRouter } from 'expo-router';
@@ -10,7 +12,8 @@ import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 
 /**
  * Meta de ahorro (wireframe "Meta de ahorro" de Figma): fija, cambia y quita la meta del mes actual, como monto
- * fijo o como porcentaje de los ingresos. El formulario aparece cuando se sabe si ya hay meta del mes.
+ * fijo o como porcentaje de los ingresos. El formulario aparece cuando se sabe si ya hay meta del mes. Debajo, el
+ * ahorro que el usuario ha anotado mes a mes.
  */
 export default function MetaDeAhorro() {
   const router = useRouter();
@@ -19,6 +22,7 @@ export default function MetaDeAhorro() {
   const { cargando, meta, error, recargar } = useMetaDelMes(mes);
   // Cada carga es independiente: el progreso no espera a la meta ni al revés
   const avance = useProgresoAhorro(mes);
+  const anotado = useAhorroAcumulado(mes);
 
   return (
     <View className="flex-1 bg-background px-5 pt-12">
@@ -65,9 +69,15 @@ export default function MetaDeAhorro() {
             metaInicial={meta}
             mes={mes}
             mesLargo={mesLargo}
-            onMetaCambiada={avance.recargar}
+            onMetaCambiada={() => {
+              avance.recargar();
+              // Fijar o quitar la meta pone o saca la fila del mes
+              anotado.recargar();
+            }}
           />
         )}
+
+        <AhorroAnotado {...anotado} />
       </ScrollView>
     </View>
   );
