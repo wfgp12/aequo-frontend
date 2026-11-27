@@ -44,6 +44,11 @@ export default function Home() {
             <Text>Tarjetas</Text>
           </Button>
         </Link>
+        <Link href="/categorias" asChild>
+          <Button variant="outline">
+            <Text>Mis categorías</Text>
+          </Button>
+        </Link>
         <Link href="/perfil" asChild>
           <Button variant="outline">
             <Text>Mi perfil</Text>

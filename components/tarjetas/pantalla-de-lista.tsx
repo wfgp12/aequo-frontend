@@ -9,6 +9,8 @@ type MarcoProps = {
   titulo: string;
   /** Línea pequeña bajo el título. */
   subtitulo?: string;
+  /** Lo que va bajo el título y se ve siempre, cargue o no (por ejemplo, un selector). */
+  encabezado?: ReactNode;
   /** Hoja o diálogo que se abre sobre la pantalla. */
   hoja?: ReactNode;
   children: ReactNode;
@@ -57,7 +59,7 @@ export function EstadoDeLista({
 }
 
 /** El marco de las pantallas de tarjetas: encabezado con "Volver" y el título, el contenido que se desplaza y la hoja. */
-export function MarcoDePantalla({ titulo, subtitulo, hoja, children }: MarcoProps) {
+export function MarcoDePantalla({ titulo, subtitulo, encabezado, hoja, children }: MarcoProps) {
   const router = useRouter();
 
   return (
@@ -82,6 +84,7 @@ export function MarcoDePantalla({ titulo, subtitulo, hoja, children }: MarcoProp
           </View>
         </View>
 
+        {encabezado}
         {children}
       </ScrollView>
       {hoja}
@@ -93,12 +96,13 @@ export function MarcoDePantalla({ titulo, subtitulo, hoja, children }: MarcoProp
 export function PantallaDeLista({
   titulo,
   subtitulo,
+  encabezado,
   hoja,
   children,
   ...estado
 }: MarcoProps & EstadoProps) {
   return (
-    <MarcoDePantalla titulo={titulo} subtitulo={subtitulo} hoja={hoja}>
+    <MarcoDePantalla titulo={titulo} subtitulo={subtitulo} encabezado={encabezado} hoja={hoja}>
       <EstadoDeLista {...estado}>{children}</EstadoDeLista>
     </MarcoDePantalla>
   );
@@ -108,10 +112,13 @@ export function PantallaDeLista({
 export function FilaDeLista({
   titulo,
   detalle,
+  conFlecha,
   onPress,
 }: {
   titulo: string;
   detalle: string;
+  /** "›" a la derecha, para las listas que la llevan en el diseño. */
+  conFlecha?: boolean;
   onPress: () => void;
 }) {
   return (
@@ -119,10 +126,17 @@ export function FilaDeLista({
       accessibilityRole="button"
       accessibilityLabel={`${titulo}, ${detalle}`}
       onPress={onPress}
-      className="min-h-14 justify-center rounded-xl border border-border bg-card px-4 py-2"
+      className="min-h-14 flex-row items-center gap-3 rounded-xl border border-border bg-card px-4 py-2"
     >
-      <Text className="font-semibold">{titulo}</Text>
-      <Text variant="muted">{detalle}</Text>
+      <View className="flex-1">
+        <Text className="font-semibold">{titulo}</Text>
+        <Text variant="muted">{detalle}</Text>
+      </View>
+      {conFlecha ? (
+        <Text variant="muted" className="text-xl">
+          ›
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
