@@ -9,12 +9,12 @@ Cubre RF-30 (total estimado a pagar en el mes por tarjeta) y RF-31 (proyección 
 - **No** hay "Próximo pago estimado $ 310.000 · 28 de octubre" ni "Vence 28 sep" en las filas (el backend no guarda día de pago): no hay fechas de vencimiento.
 - **No** hay "Deuda total $ 1.200.000" (el backend no la entrega y el frontend no la calcula).
 - **No** hay "Marcar como pagada" (es el paquete 5.3.2, RF-32).
-- **No** hay la sección "CUOTAS PENDIENTES" con una fila por compra ("Mercado · cuota 2/6", "Tenis · cuota 1/3", "Gasolina · pago único"): el backend lo entregará como `detalle` en un paquete aparte (5.3.6 del backend); queda anotado como pendiente del Figma.
+- **No** hay la sección "CUOTAS PENDIENTES" con una fila por compra ("Mercado · cuota 2/6", "Tenis · cuota 1/3", "Gasolina · pago único"): el backend lo entregará como `detalle` en un paquete aparte (5.3.6 del backend); queda anotado como pendiente del Figma. *(Cubierto después en `05-cuotas-pendientes.md`, con el título "Cuotas de este mes" y sin fechas.)*
 - **Sí** hay: el total a pagar del mes con su desglose (cuotas y cargos fijos), "lo que te queda por pagar" (`saldoPendiente`) y la lista de los meses siguientes (`proyeccion`) con su total, sus cuotas y sus cargos fijos por mes. Lo que el Figma sí dice y se conserva: el encabezado con "‹" y el nombre de la tarjeta, y un bloque de resumen con montos en pesos.
 
 **Fuera de este paquete (queda anotado, no se prueba aquí):**
 - "Marcar como pagada" y los pagos de la tarjeta (5.3.2, RF-32).
-- Las filas por compra de "Cuotas pendientes" (`detalle`, 5.3.6 del backend).
+- Las filas por compra de "Cuotas pendientes" (`detalle`, 5.3.6 del backend): cubiertas después en `05-cuotas-pendientes.md`.
 - Cupo disponible, fecha de vencimiento o de pago y "Deuda total": sin datos en la API.
 - Registrar una compra o un avance desde el detalle: sigue entrando por "Registrar egreso" y por "Avance en efectivo" en "Mis tarjetas".
 - La versión de escritorio (1280 px): el Figma no la tiene para tarjetas.

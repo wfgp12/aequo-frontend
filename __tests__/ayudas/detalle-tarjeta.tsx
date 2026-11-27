@@ -70,6 +70,7 @@ export function proyeccionDe(
     total: 0,
     saldoPendiente: 0,
     proyeccion: [],
+    detalle: [],
     pagado: 0,
     ...resto,
   };

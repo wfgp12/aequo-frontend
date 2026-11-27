@@ -55,6 +55,24 @@ describe('adaptador de la proyección y de una tarjeta (/tarjetas/:id…)', () =
         saldoPendiente: 0,
       },
     ],
+    detalle: [
+      {
+        compraId: '66a0b3c4d5e6f70012ab35aa',
+        descripcion: 'Mercado',
+        tipo: 'COMPRA',
+        numeroCuota: 2,
+        totalCuotas: 6,
+        cuota: 209543.21823395,
+      },
+      {
+        compraId: '66a0b3c4d5e6f70012ab35ab',
+        descripcion: 'Avance en efectivo',
+        tipo: 'AVANCE',
+        numeroCuota: 1,
+        totalCuotas: 1,
+        cuota: 81726.8319307,
+      },
+    ],
   };
 
   beforeEach(() => {
@@ -141,6 +159,7 @@ describe('adaptador de la proyección y de una tarjeta (/tarjetas/:id…)', () =
         pagado: 0,
         diferencia: -55000,
         proyeccion: [],
+        detalle: [],
       };
       fetchMock.mockResolvedValue(respuesta(200, vacia));
 
