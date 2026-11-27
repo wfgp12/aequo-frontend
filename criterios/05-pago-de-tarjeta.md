@@ -7,7 +7,7 @@ Cubre RF-32 (registrar los pagos de una tarjeta y compararlos con el total estim
 **Fuera de este paquete (queda anotado, no se prueba aquí):**
 - Editar un pago: el contrato no lo permite (se elimina y se registra de nuevo).
 - Abonos a deudas (módulo 6): solo se prevé que Movimientos los trate como de solo lectura (CA-RF32-F41, decisión D11).
-- El `detalle` por compra de la proyección (5.3.6 del backend), cupo, fecha de vencimiento y "Deuda total": sin datos en la API (decidido en 5.1.3 y 5.3.3; sigue valiendo CA-RF30-F33).
+- El `detalle` por compra de la proyección (5.3.6 del backend; cubierto después en `05-cuotas-pendientes.md`), cupo, fecha de vencimiento y "Deuda total": sin datos en la API (decidido en 5.1.3 y 5.3.3; sigue valiendo CA-RF30-F33).
 - Ir desde Movimientos a la tarjeta de un pago: `GET /transacciones` no trae `tarjetaId` (el contrato lo deja para un paquete aparte).
 - La versión de escritorio (1280 px): el Figma no la tiene para tarjetas.
 - Colores, tamaños, tipografía, la posición exacta de los bloques y el aspecto de la hoja y del diálogo, en modo claro y oscuro: **revisión visual**, no se prueba con Jest.

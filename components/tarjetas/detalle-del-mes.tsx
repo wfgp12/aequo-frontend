@@ -1,5 +1,5 @@
 import { Text } from '@/components/ui/text';
-import type { MesProyectado, ProyeccionTarjeta } from '@/lib/api/tarjetas';
+import type { CuotaDelMes, MesProyectado, ProyeccionTarjeta } from '@/lib/api/tarjetas';
 import { formatearPesos } from '@/lib/dinero';
 import { mesActual, mesEnLetras } from '@/lib/fechas';
 import { NOTA_DE_LA_CUOTA, textoDeDiferencia } from '@/lib/tarjetas';
@@ -39,6 +39,39 @@ function Cifra({
   );
 }
 
+/** Una compra o avance con cuota en el mes; solo se lee. La descripción se ve completa, sin recortes. */
+function FilaDeCuota({ item }: { item: CuotaDelMes }) {
+  const { descripcion, numeroCuota, totalCuotas } = item;
+  const unica = totalCuotas === 1;
+  const frase = unica ? 'pago único' : `cuota ${numeroCuota} de ${totalCuotas}`;
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${descripcion}, ${frase}, ${pesos(item.cuota)}`}
+      className="min-h-14 flex-row items-center gap-3 rounded-xl border border-border bg-card px-4 py-2"
+    >
+      <View className="size-9 rounded-full bg-muted" />
+      <Text className="flex-1 font-semibold">
+        {`${descripcion} · ${unica ? 'pago único' : `cuota ${numeroCuota}/${totalCuotas}`}`}
+      </Text>
+      <Text className="font-semibold">{pesos(item.cuota)}</Text>
+    </View>
+  );
+}
+
+/** Sin cuotas no hay sección. Un backend sin actualizar no manda `detalle`: se omite en vez de romper la pantalla. */
+function SeccionDeCuotas({ nombre, detalle }: { nombre: string; detalle?: CuotaDelMes[] }) {
+  if (!detalle?.length) return null;
+  return (
+    <>
+      <Text className="mt-2 text-lg font-semibold">{`Cuotas de ${nombre}`}</Text>
+      {detalle.map((item) => (
+        <FilaDeCuota key={item.compraId} item={item} />
+      ))}
+    </>
+  );
+}
+
 function FilaDeMes({ mes }: { mes: MesProyectado }) {
   const nombre = mesEnLetras(mes.mes);
   return (
@@ -57,8 +90,8 @@ function FilaDeMes({ mes }: { mes: MesProyectado }) {
 }
 
 /**
- * Lo que se paga en el mes elegido, lo que ya se pagó frente a eso, lo que queda por pagar después y los meses
- * siguientes, tal como los entrega el backend (`pagos` es la lista de lo pagado, que va bajo sus cifras). Si no hay
+ * Lo que se paga en el mes elegido, lo que ya se pagó frente a eso, lo que queda por pagar después, las cuotas del
+ * mes compra por compra y los meses siguientes, tal como los entrega el backend (`pagos` es la lista de lo pagado, que va bajo sus cifras). Si no hay
  * nada de eso (tarjeta nueva, mes lejano), un texto amable en vez de ceros y tablas vacías.
  */
 export function DetalleDelMes({
@@ -111,6 +144,8 @@ export function DetalleDelMes({
           {NOTA_DEL_SALDO}
         </Text>
       </Cifra>
+
+      <SeccionDeCuotas nombre={nombre} detalle={proyeccion.detalle} />
 
       {siguientes.length ? (
         <>
