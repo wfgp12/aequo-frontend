@@ -28,6 +28,7 @@ function Navegacion() {
       <Stack.Protected guard={estado === 'activa'}>
         <Stack.Screen name="index" />
         <Stack.Screen name="perfil" />
+        <Stack.Screen name="categorias" />
         <Stack.Screen name="registrar" options={{ presentation: 'modal' }} />
         <Stack.Screen name="movimientos" />
         <Stack.Screen name="reportes" />

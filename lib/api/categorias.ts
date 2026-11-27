@@ -27,6 +27,16 @@ export function crearCategoria(
   });
 }
 
+/** PATCH /categorias/:id: cambia el nombre de una categoría propia (un 409 si ya existe una con ese nombre). */
+export function renombrarCategoria(id: string, nombre: string) {
+  return requestAutenticado<Categoria>(`/categorias/${id}`, { method: 'PATCH', body: { nombre } });
+}
+
+/** DELETE /categorias/:id (204): sus movimientos pasan a la categoría "Otros" del mismo tipo. */
+export function eliminarCategoria(id: string) {
+  return requestAutenticado<void>(`/categorias/${id}`, { method: 'DELETE' });
+}
+
 /** GET /categorias: las generales y las del usuario, con las generales primero y luego por nombre. */
 export async function listarCategorias(tipo?: TipoMovimiento) {
   const consulta = tipo ? `?tipo=${tipo}` : '';
