@@ -9,7 +9,7 @@ function mensajeAlQuitar(e: unknown) {
   if (e instanceof NetworkError)
     return 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
   if (e instanceof ApiError && e.status === 409)
-    return 'Esta meta ya tiene ahorro registrado y no se puede quitar.';
+    return 'Ya anotaste ahorro en este mes, así que la meta no se puede quitar. Borra primero lo anotado.';
   return 'No pudimos quitar tu meta. Inténtalo de nuevo en unos minutos.';
 }
 

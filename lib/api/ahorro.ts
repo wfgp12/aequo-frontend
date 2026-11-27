@@ -9,7 +9,7 @@ export type MetaAhorro = {
   valorObjetivo: number;
   /** Mes de la meta, YYYY-MM. */
   periodo: string;
-  /** Lo calcula el sistema: la pantalla de la meta no lo envía. */
+  /** Lo que el usuario anotó que ahorró ese mes (0 si no lo ha escrito). */
   ahorroReal: number;
   creadaEn: string;
   actualizadaEn: string;
@@ -62,6 +62,25 @@ export function crearMeta(
 /** PATCH /ahorro/metas/:id: el tipo y el valor van siempre juntos. Repetirlo es inofensivo, no lleva clave. */
 export function actualizarMeta(id: string, datos: { tipoMeta: TipoMeta; valorObjetivo: number }) {
   return requestAutenticado<MetaAhorro>(`/ahorro/metas/${id}`, { method: 'PATCH', body: datos });
+}
+
+/** PATCH /ahorro/metas/:id solo con lo que el usuario anotó que ahorró (0 lo borra). Sin clave: repetirlo es inofensivo. */
+export function guardarAhorroReal(id: string, ahorroReal: number) {
+  return requestAutenticado<MetaAhorro>(`/ahorro/metas/${id}`, {
+    method: 'PATCH',
+    body: { ahorroReal },
+  });
+}
+
+/** Lo anotado mes a mes, de la meta más antigua a la más reciente; los meses sin meta no aparecen. */
+export type AhorroAcumulado = {
+  total: number;
+  meses: { periodo: string; ahorroReal: number; acumulado: number }[];
+};
+
+/** GET /ahorro/acumulado hasta un mes (YYYY-MM, incluido): las sumas vienen del backend, sin redondear. */
+export function obtenerAhorroAcumulado(hasta: string) {
+  return requestAutenticado<AhorroAcumulado>(`/ahorro/acumulado?hasta=${hasta}`);
 }
 
 /** DELETE /ahorro/metas/:id: responde 204 sin cuerpo (un 409 si la meta ya tiene ahorro registrado). */

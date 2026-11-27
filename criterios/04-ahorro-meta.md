@@ -10,7 +10,9 @@ Cubre RF-21 (definir una meta de ahorro mensual, como porcentaje de los ingresos
 - El widget "Ingresos recurrentes" que acompaña a la meta en escritorio: otra pantalla y otro paquete.
 - La versión de escritorio (1280 px, nodo 142:457 de Figma) y su menú lateral; la barra de navegación inferior y el bottom sheet "Más" (no existen todavía: la entrada es un botón en `app/index.tsx`, como se hizo con "Reportes").
 - Metas de otros meses: la pantalla trabaja solo con el mes actual, aunque el backend permita crear, editar y quitar metas de cualquier mes. No hay selector de mes.
+  > Actualizado por `04-ahorro-real.md` (2026-11-26): la meta se sigue fijando, cambiando y quitando solo en el mes actual, pero ahora se puede **anotar el ahorro** de meses anteriores que tengan meta.
 - `ahorroReal`: el backend lo acepta hoy, pero lo calculará el sistema (RF-23). La pantalla no lo muestra ni lo envía, ni al crear ni al editar.
+  > Actualizado por `04-ahorro-real.md` (2026-11-26): el ahorro real lo **escribe el usuario**; la pantalla lo muestra y lo envía en un `PATCH` aparte (CA-RF23-F17 y F26). Crear y editar la meta siguen sin enviarlo.
 - Todo cálculo (monto de la meta a partir de un porcentaje, ahorro del mes, disponible): son del backend.
 
 **Fuentes:** Especificación de Requisitos (RF-21), CLAUDE.md (decisiones de UX: confirmar siempre las eliminaciones; carga y arranque en frío de Render, RNF-02; lenguaje sencillo, RNF-04; accesibilidad, RNF-06; cálculos en el backend, RNF-11), Figma sección 09 · Ahorro e ingresos recurrentes, frame móvil "Meta de ahorro" (360 px): encabezado "‹ Meta de ahorro"; campo "Meta mensual" con "$ 1.500.000"; texto de ayuda "Es lo que quieres que te quede cada mes después de restar tus egresos a tus ingresos."; botón primario "Guardar meta" y botón de texto "Quitar meta" (los demás elementos del frame quedan fuera, arriba), contrato `coordinacion/contratos/ahorro-metas.md` (estado "propuesto": falta la conformidad del frontend) y criterios del backend `CA-RF21-28..76` (`aequo-backend/criterios/04-ahorro.md`).
@@ -73,6 +75,8 @@ Cubre RF-21 (definir una meta de ahorro mensual, como porcentaje de los ingresos
 > Decisión (del desarrollador): la pantalla trabaja solo con la meta del mes actual; el mes es el del dispositivo, como en Reportes.
 
 > Actualizado en 4.3.2: "no se envía nada más" se refiere a la meta (no se crea, edita ni quita nada al entrar). El progreso del mes se pide aparte y a la vez (CA-RF22-F01).
+
+> Actualizado en `04-ahorro-real.md` (2026-11-26): además se pide el ahorro acumulado hasta el mes actual (CA-RF23-F02), que trae los meses anteriores. "No se piden otros meses" habla de la meta del mes.
 
 ### CA-RF21-F05 — Mientras carga, solo el indicador
 
@@ -360,9 +364,9 @@ Cubre RF-21 (definir una meta de ahorro mensual, como porcentaje de los ingresos
 
 - **Dado** que el backend responde `409` ("No se puede eliminar una meta que ya tiene ahorro registrado")
 - **Cuando** el usuario ve el resultado
-- **Entonces** ve, dentro del diálogo, "Esta meta ya tiene ahorro registrado y no se puede quitar.", el diálogo sigue abierto ("Cancelar" lo cierra) y, al cerrarlo, la meta sigue en el formulario con "Quitar meta" visible.
+- **Entonces** ve, dentro del diálogo, "Ya anotaste ahorro en este mes, así que la meta no se puede quitar. Borra primero lo anotado.", el diálogo sigue abierto ("Cancelar" lo cierra) y, al cerrarlo, la meta sigue en el formulario con "Quitar meta" visible.
 
-> Decisión: texto aprobado (RNF-04). Nota: con esta pantalla sin enviar `ahorroReal`, este caso solo ocurre si otro cliente lo dejó distinto de 0; se cubre igual porque el backend lo define (D8).
+> Actualizado en `04-ahorro-real.md` (decisión D8, aprobada el 2026-11-26): cambia el texto (antes "Esta meta ya tiene ahorro registrado y no se puede quitar."). Desde ese paquete el caso es habitual: ocurre cuando el usuario anotó ahorro en el mes (CA-RF23-F29).
 
 ### CA-RF21-F40 — La meta ya estaba quitada (404): se cumple lo que el usuario quería
 

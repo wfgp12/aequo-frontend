@@ -1,15 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import type { ProgresoAhorro } from '@/lib/api/ahorro';
-import { formatearPesos } from '@/lib/dinero';
+import { pesosConSigno } from '@/lib/dinero';
 import { nombreDelMes } from '@/lib/fechas';
 import { ActivityIndicator, View } from 'react-native';
-
-/** "$ 250.000" o "-$ 250.000": se redondea al peso solo al mostrar y un cero nunca lleva signo. */
-function pesosConSigno(valor: number) {
-  const redondeado = Math.round(valor);
-  return `${redondeado < 0 ? '-' : ''}$ ${formatearPesos(Math.abs(redondeado))}`;
-}
 
 /** "2026-09" → "Septiembre 2026" */
 function mesConAnio(mes: string) {
