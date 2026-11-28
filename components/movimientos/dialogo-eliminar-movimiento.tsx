@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { ApiError } from '@/lib/api/client';
 import { eliminarTransaccion, type TransaccionListada } from '@/lib/api/transacciones';
 import { formatearPesos } from '@/lib/dinero';
+import { esApi, yaNoExiste } from '@/lib/errores';
 import { diaYMesCorto } from '@/lib/fechas';
 import { mensajeAlEliminar, tituloDelMovimiento } from '@/lib/movimientos';
 import { useRef, useState } from 'react';
@@ -32,9 +32,9 @@ export function DialogoEliminarMovimiento({ item, onCancelar, onEliminado }: Pro
       onEliminado();
     } catch (e) {
       // Un 404 significa que ya estaba eliminado: el resultado que el usuario quería ya se cumplió
-      if (e instanceof ApiError && e.status === 404) onEliminado();
+      if (yaNoExiste(e)) onEliminado();
       // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
-      else setError(mensajeAlEliminar(e));
+      else if (!esApi(e, 401)) setError(mensajeAlEliminar(e));
     } finally {
       enVuelo.current = false;
       setEliminando(false);

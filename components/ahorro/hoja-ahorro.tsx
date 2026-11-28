@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { guardarAhorroReal, obtenerMetaDelMes } from '@/lib/api/ahorro';
 import { ApiError } from '@/lib/api/client';
-import { esApi, mensajeDeFallo } from '@/lib/errores';
+import { esCaso, mensajeAlCambiar } from '@/lib/errores';
 import { mesEnLetras } from '@/lib/fechas';
 import { useGuardarHoja } from '@/lib/use-guardar-hoja';
 import { useState } from 'react';
@@ -21,12 +21,12 @@ async function anotar(periodo: string, ahorroReal: number) {
 }
 
 const mensajeAlGuardar = (e: unknown) =>
-  esApi(e, 404)
+  esCaso(e, 404, 'META_NO_ENCONTRADA')
     ? 'Ese mes ya no tiene meta, así que no se puede anotar el ahorro.'
-    : mensajeDeFallo(e, 'No pudimos guardar tu ahorro. Inténtalo de nuevo en unos minutos.');
+    : mensajeAlCambiar(e, 'No pudimos guardar tu ahorro. Inténtalo de nuevo en unos minutos.');
 
 const mensajeAlBorrar = (e: unknown) =>
-  mensajeDeFallo(e, 'No pudimos borrar lo anotado. Inténtalo de nuevo en unos minutos.');
+  mensajeAlCambiar(e, 'No pudimos borrar lo anotado. Inténtalo de nuevo en unos minutos.');
 
 type Props = {
   /** YYYY-MM */

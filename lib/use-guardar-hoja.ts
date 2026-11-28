@@ -1,4 +1,4 @@
-import { esApi } from '@/lib/errores';
+import { claveGastada, esApi, yaNoExiste } from '@/lib/errores';
 import { randomUUID } from 'expo-crypto';
 import { useRef, useState } from 'react';
 
@@ -50,7 +50,8 @@ export function useGuardarHoja<D extends object>({
       onCerrar();
     } catch (e) {
       // Si ya no existe, la lista debe dejar de mostrarlo aunque la hoja siga abierta con el aviso
-      if (esApi(e, 404)) onCambio();
+      if (yaNoExiste(e)) onCambio();
+      if (claveGastada(e)) intento.current = null;
       // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
       if (!esApi(e, 401)) setAviso(mensajeDeError(e, edicion !== null));
     } finally {

@@ -1,17 +1,14 @@
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { eliminarMeta } from '@/lib/api/ahorro';
-import { ApiError, NetworkError } from '@/lib/api/client';
+import { esApi, esCaso, mensajeAlCambiar, yaNoExiste } from '@/lib/errores';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Modal, View } from 'react-native';
 
-function mensajeAlQuitar(e: unknown) {
-  if (e instanceof NetworkError)
-    return 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
-  if (e instanceof ApiError && e.status === 409)
-    return 'Ya anotaste ahorro en este mes, así que la meta no se puede quitar. Borra primero lo anotado.';
-  return 'No pudimos quitar tu meta. Inténtalo de nuevo en unos minutos.';
-}
+const mensajeAlQuitar = (e: unknown) =>
+  esCaso(e, 409, 'META_CON_AHORRO')
+    ? 'Ya anotaste ahorro en este mes, así que la meta no se puede quitar. Borra primero lo anotado.'
+    : mensajeAlCambiar(e, 'No pudimos quitar tu meta. Inténtalo de nuevo en unos minutos.');
 
 type Props = {
   metaId: string;
@@ -39,9 +36,9 @@ export function DialogoQuitarMeta({ metaId, mes, onCancelar, onQuitada }: Props)
       onQuitada();
     } catch (e) {
       // Un 404 significa que ya estaba quitada: lo que el usuario quería ya se cumplió
-      if (e instanceof ApiError && e.status === 404) onQuitada();
+      if (yaNoExiste(e)) onQuitada();
       // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
-      else if (!(e instanceof ApiError && e.status === 401)) setError(mensajeAlQuitar(e));
+      else if (!esApi(e, 401)) setError(mensajeAlQuitar(e));
     } finally {
       enVuelo.current = false;
       setQuitando(false);

@@ -1,7 +1,7 @@
 import { HojaCategoria } from '@/components/categorias/hoja-categoria';
 import { crearCategoria, type Categoria, type TipoMovimiento } from '@/lib/api/categorias';
 import { leerNombre, mensajeAlGuardarCategoria } from '@/lib/categorias';
-import { esApi } from '@/lib/errores';
+import { claveGastada, esApi } from '@/lib/errores';
 import { randomUUID } from 'expo-crypto';
 import { useRef, useState } from 'react';
 
@@ -35,6 +35,7 @@ export function HojaNuevaCategoria({ tipo, onCerrar, onCreada }: Props) {
     try {
       onCreada(await crearCategoria({ nombre: limpio, tipo }, intento.current.clave));
     } catch (e) {
+      if (claveGastada(e)) intento.current = null;
       // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
       if (!esApi(e, 401)) setError(mensajeAlGuardarCategoria(e));
     } finally {

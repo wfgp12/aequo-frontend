@@ -13,7 +13,7 @@ import { Text } from '@/components/ui/text';
 import { registrarPago, type PagoRegistrado, type Tarjeta } from '@/lib/api/tarjetas';
 import { MAX_DESCRIPCION, type MetodoPago } from '@/lib/api/transacciones';
 import { formatearPesos } from '@/lib/dinero';
-import { esApi } from '@/lib/errores';
+import { yaNoExiste } from '@/lib/errores';
 import { hoy, mesEnLetras } from '@/lib/fechas';
 import { METODOS_SIN_CREDITO } from '@/lib/metodos-de-pago';
 import { leerPago, mensajeAlGuardarPago, textoDeDiferencia } from '@/lib/tarjetas';
@@ -86,7 +86,7 @@ export function HojaPago({ tarjeta, valorInicial, onCerrar, onCambio }: Props) {
       (clave) =>
         registrarPago(tarjeta.id, datos, clave).catch((e: unknown) => {
           // Si la tarjeta ya no existe, el detalle debe dejar de mostrarla aunque la hoja siga abierta con el aviso
-          if (esApi(e, 404)) onCambio();
+          if (yaNoExiste(e)) onCambio();
           throw e;
         }),
       mensajeAlGuardarPago,

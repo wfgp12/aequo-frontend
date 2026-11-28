@@ -9,7 +9,7 @@ import {
   mensajeAlEliminarCategoria,
   mensajeAlGuardarCategoria,
 } from '@/lib/categorias';
-import { esApi } from '@/lib/errores';
+import { esCaso } from '@/lib/errores';
 import { useGuardarHoja } from '@/lib/use-guardar-hoja';
 import { useState } from 'react';
 
@@ -34,7 +34,9 @@ export function HojaEditarCategoria({ categoria, onCerrar, onCambio }: Props) {
     // Esta hoja solo edita: para crear está "Nueva categoría"
     crear: () => Promise.resolve(),
     mensajeDeError: (e) =>
-      esApi(e, 404) ? 'Esta categoría ya no existe.' : mensajeAlGuardarCategoria(e),
+      esCaso(e, 404, 'CATEGORIA_NO_ENCONTRADA')
+        ? 'Esta categoría ya no existe.'
+        : mensajeAlGuardarCategoria(e),
     onCambio,
     onCerrar,
   });

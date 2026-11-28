@@ -1,4 +1,3 @@
-import { ApiError } from '@/lib/api/client';
 import type {
   CargoFijo,
   CuotaPrevia,
@@ -11,7 +10,14 @@ import type {
 } from '@/lib/api/tarjetas';
 import type { MetodoPago } from '@/lib/api/transacciones';
 import { formatearPesos } from '@/lib/dinero';
-import { esApi, mensajeDeFallo } from '@/lib/errores';
+import {
+  esCaso,
+  mensajeAlCambiar,
+  mensajeDeFallo,
+  textoEnProceso,
+  tieneCodigo,
+  yaNoExiste,
+} from '@/lib/errores';
 import { fechaCorta, mesActual, mesEnLetras } from '@/lib/fechas';
 import { ETIQUETA_METODO } from '@/lib/movimientos';
 import { fraccionAPorcentaje, porcentajeAFraccion } from '@/lib/tasa';
@@ -90,27 +96,35 @@ export function soloLoCambiado<D extends object>(actual: D, nuevos: D): Partial<
 // --- Cómo se explica cada fallo ---
 
 export const mensajeAlGuardarTarjeta = (e: unknown, editando: boolean) => {
-  if (esApi(e, 409)) return 'Ya tienes una tarjeta con ese alias. Elige otro.';
-  if (editando && esApi(e, 404)) return 'Esta tarjeta ya no existe.';
-  return mensajeDeFallo(e, 'No pudimos guardar tu tarjeta. Revisa los datos e inténtalo de nuevo.');
+  if (tieneCodigo(e, 'IDEMPOTENCIA_EN_PROCESO')) return textoEnProceso('tarjeta');
+  if (esCaso(e, 409, 'TARJETA_DUPLICADA'))
+    return 'Ya tienes una tarjeta con ese alias. Elige otro.';
+  if (editando && esCaso(e, 404, 'TARJETA_NO_ENCONTRADA')) return 'Esta tarjeta ya no existe.';
+  return mensajeAlCambiar(
+    e,
+    'No pudimos guardar tu tarjeta. Revisa los datos e inténtalo de nuevo.',
+  );
 };
 
 export const mensajeAlGuardarCargo = (e: unknown, editando: boolean) => {
-  if (esApi(e, 404))
+  if (tieneCodigo(e, 'IDEMPOTENCIA_EN_PROCESO')) return textoEnProceso('cargo fijo');
+  if (tieneCodigo(e, 'TARJETA_NO_ENCONTRADA')) return 'Esta tarjeta ya no existe.';
+  // Sin `code`, al editar lo que falta es el cargo y al crear, la tarjeta
+  if (esCaso(e, 404, 'CARGO_NO_ENCONTRADO'))
     return editando ? 'Este cargo fijo ya no existe.' : 'Esta tarjeta ya no existe.';
-  return mensajeDeFallo(
+  return mensajeAlCambiar(
     e,
     'No pudimos guardar el cargo fijo. Revisa los datos e inténtalo de nuevo.',
   );
 };
 
 export const mensajeAlEliminarTarjeta = (e: unknown) =>
-  esApi(e, 409)
+  esCaso(e, 409, 'TARJETA_CON_COMPRAS', 'TARJETA_CON_PAGOS')
     ? 'Esta tarjeta ya tiene compras o pagos registrados y no se puede eliminar.'
-    : mensajeDeFallo(e, 'No pudimos eliminar tu tarjeta. Inténtalo de nuevo en unos minutos.');
+    : mensajeAlCambiar(e, 'No pudimos eliminar tu tarjeta. Inténtalo de nuevo en unos minutos.');
 
 export const mensajeAlEliminarCargo = (e: unknown) =>
-  mensajeDeFallo(e, 'No pudimos eliminar el cargo fijo. Inténtalo de nuevo en unos minutos.');
+  mensajeAlCambiar(e, 'No pudimos eliminar el cargo fijo. Inténtalo de nuevo en unos minutos.');
 
 export const fallosDeTarjetas = (e: unknown): Fallo => ({
   mensaje: mensajeDeFallo(e, 'No pudimos cargar tus tarjetas. Inténtalo de nuevo en unos minutos.'),
@@ -169,24 +183,28 @@ export function filasDeTarjeta({ tarjeta, cuotas, primerPago, previa }: Eleccion
   ];
 }
 
-const noEncontrado = (e: unknown, mensaje: string) =>
-  e instanceof ApiError && e.status === 404 && e.message === mensaje;
-
-/** El 409 es el primer intento todavía en proceso con la misma clave; el 404 distingue qué ya no existe. */
+/** El 409 es el primer intento todavía en proceso con la misma clave; el `code` del 404 dice qué ya no existe. */
 export function mensajeAlGuardarCompra(e: unknown, cosa: 'compra' | 'avance' | 'pago') {
-  if (esApi(e, 409)) {
-    return `Tu ${cosa} todavía se está guardando. Espera unos segundos e inténtalo de nuevo.`;
-  }
-  if (noEncontrado(e, 'Tarjeta no encontrada')) return TARJETA_YA_NO_EXISTE;
-  if (noEncontrado(e, 'Categoría no encontrada')) {
+  if (esCaso(e, 409, 'IDEMPOTENCIA_EN_PROCESO')) return textoEnProceso(cosa);
+  if (tieneCodigo(e, 'TARJETA_NO_ENCONTRADA')) return TARJETA_YA_NO_EXISTE;
+  if (tieneCodigo(e, 'CATEGORIA_NO_ENCONTRADA')) {
     return 'Esta categoría ya no existe. Vuelve atrás y elige otra.';
   }
-  return mensajeDeFallo(e, `No pudimos guardar tu ${cosa}. Revisa los datos e inténtalo de nuevo.`);
+  // Sin `code` no se sabe qué falta: en la compra puede ser la tarjeta o la categoría
+  if (esCaso(e, 404)) {
+    return cosa === 'compra'
+      ? 'La tarjeta o la categoría que elegiste ya no existe. Vuelve atrás y elige otra.'
+      : TARJETA_YA_NO_EXISTE;
+  }
+  return mensajeAlCambiar(
+    e,
+    `No pudimos guardar tu ${cosa}. Revisa los datos e inténtalo de nuevo.`,
+  );
 }
 
 /** Repetir la consulta no ayuda si la tarjeta ya no existe; en los demás fallos sí. */
 export const fallosDeCuotaPrevia = (e: unknown): Fallo =>
-  esApi(e, 404)
+  yaNoExiste(e)
     ? { mensaje: TARJETA_YA_NO_EXISTE, reintentar: false }
     : {
         mensaje: mensajeDeFallo(e, 'No pudimos calcular tu cuota. Inténtalo de nuevo.'),
@@ -197,7 +215,7 @@ export const fallosDeCuotaPrevia = (e: unknown): Fallo =>
 const fallosDeUnaTarjeta =
   (general: string) =>
   (e: unknown): Fallo =>
-    esApi(e, 404)
+    yaNoExiste(e)
       ? { mensaje: 'Esta tarjeta ya no existe.', reintentar: false }
       : { mensaje: mensajeDeFallo(e, general), reintentar: true };
 
@@ -240,10 +258,12 @@ export function textoDeDiferencia(diferencia: number) {
 }
 
 export const mensajeAlGuardarPago = (e: unknown) =>
-  esApi(e, 404) ? 'Esta tarjeta ya no existe.' : mensajeAlGuardarCompra(e, 'pago');
+  esCaso(e, 404, 'TARJETA_NO_ENCONTRADA')
+    ? 'Esta tarjeta ya no existe.'
+    : mensajeAlGuardarCompra(e, 'pago');
 
 export const mensajeAlEliminarPago = (e: unknown) =>
-  mensajeDeFallo(e, 'No pudimos eliminar el pago. Inténtalo de nuevo en unos minutos.');
+  mensajeAlCambiar(e, 'No pudimos eliminar el pago. Inténtalo de nuevo en unos minutos.');
 
 /** "Hoy · Transferencia" o "15 de noviembre de 2026 · Transferencia". */
 export const fechaYMetodoDelPago = (pago: Pick<PagoTarjeta, 'fecha' | 'metodoPago'>) =>
