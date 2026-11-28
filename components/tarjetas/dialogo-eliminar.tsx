@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { esApi } from '@/lib/errores';
+import { esApi, yaNoExiste } from '@/lib/errores';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Modal, View } from 'react-native';
 
@@ -9,7 +9,7 @@ type Props = {
   titulo: string;
   detalle: string;
   eliminar: () => Promise<void>;
-  /** Mensaje para un fallo del backend o de la red (el 401 y el 404 no llegan aquí). */
+  /** Mensaje para un fallo del backend o de la red (el 401 y el "ya no existe" no llegan aquí). */
   mensajeDeError: (e: unknown) => string;
   onCancelar: () => void;
   /** Ya no existe (se eliminó ahora o ya estaba eliminado). */
@@ -40,7 +40,7 @@ export function DialogoEliminar({
       onEliminado();
     } catch (e) {
       // Un 404 significa que ya estaba eliminado: lo que el usuario quería ya se cumplió
-      if (esApi(e, 404)) onEliminado();
+      if (yaNoExiste(e)) onEliminado();
       // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
       else if (!esApi(e, 401)) setError(mensajeDeError(e));
     } finally {

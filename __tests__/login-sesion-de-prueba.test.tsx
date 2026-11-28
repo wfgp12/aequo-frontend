@@ -2,6 +2,7 @@ import Login from '@/app/login';
 import { ApiError, NetworkError } from '@/lib/api/client';
 import { sesionDePruebaDisponible } from '@/lib/dev-session';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { rutaNoEncontrada } from './ayudas/errores';
 
 const mockIniciarSesion = jest.fn();
 const mockIniciarSesionDePrueba = jest.fn();
@@ -68,5 +69,16 @@ describe('Login: sesión de prueba', () => {
     await fireEvent.press(screen.getByText(BOTON));
 
     expect(await screen.findByText(/No pudimos iniciar tu sesión/)).toBeOnTheScreen();
+  });
+
+  // criterios/08-codigos-de-error.md (el caso sin code es la prueba del 404 de arriba)
+  it('CA-RNF04-06 un 404 con code en la sesión de prueba sigue mostrando el aviso de desarrollo', async () => {
+    jest.mocked(sesionDePruebaDisponible).mockReturnValue(true);
+    mockIniciarSesionDePrueba.mockRejectedValue(rutaNoEncontrada());
+    await render(<Login />);
+
+    await fireEvent.press(screen.getByText(BOTON));
+
+    expect(await screen.findByText(/DEV_SESSION_ENABLED=true/)).toBeOnTheScreen();
   });
 });

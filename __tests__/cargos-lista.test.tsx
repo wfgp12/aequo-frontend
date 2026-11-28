@@ -15,6 +15,7 @@ import {
   SPOTIFY,
   VISA_ID,
 } from './ayudas/datos-tarjetas';
+import { conCodigo, rutaNoEncontrada } from './ayudas/errores';
 import {
   boton,
   interruptor,
@@ -357,5 +358,29 @@ describe('Cargos fijos: accesibilidad y lenguaje (RNF-04, RNF-06, RNF-11)', () =
     expect(screen.getByText(/\$ 45\.000 al mes/)).toBeOnTheScreen();
     expect(screen.getByText(/\$ 25\.000 al mes/)).toBeOnTheScreen();
     expect(textoDePantalla()).not.toMatch(/total/i);
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Cargos fijos: códigos de error al cargar', () => {
+  it('CA-RNF04-11 con TARJETA_NO_ENCONTRADA dice que la tarjeta ya no existe, sin "Reintentar"', async () => {
+    listar.mockRejectedValueOnce(conCodigo(404, 'TARJETA_NO_ENCONTRADA'));
+
+    await render(<Cargos />);
+
+    expect(await screen.findByText(TEXTO.yaNoExiste)).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull();
+  });
+
+  it('CA-RNF04-15 una dirección que no existe muestra el texto general y deja reintentar', async () => {
+    listar.mockRejectedValueOnce(rutaNoEncontrada());
+    await render(<Cargos />);
+
+    expect(await screen.findByText(TEXTO.errorCarga)).toBeOnTheScreen();
+    expect(screen.queryByText(TEXTO.yaNoExiste)).toBeNull();
+
+    await fireEvent.press(boton('Reintentar'));
+
+    expect(await screen.findByText(TEXTO.vacio)).toBeOnTheScreen();
   });
 });

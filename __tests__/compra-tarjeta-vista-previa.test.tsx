@@ -34,6 +34,7 @@ import {
   VISA_ID,
   VISA_T,
 } from './ayudas/compra-tarjeta';
+import { conCodigo, rutaNoEncontrada } from './ayudas/errores';
 import { boton, pendiente, RED } from './ayudas/tarjetas';
 
 // Registro de un egreso con tarjeta: cómo se pide la cuota estimada, qué pasa si falla y cómo se pasa a la fecha
@@ -498,5 +499,49 @@ describe('Cuota estimada: pasar a la fecha y a la nota', () => {
     expect(opcion('6 cuotas')).toBeSelected();
     expect(opcion('1 cuota')).not.toBeSelected();
     expect(screen.getByText('diciembre 2026')).toBeOnTheScreen();
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Cuota estimada: códigos de error', () => {
+  it('CA-RNF04-11 con TARJETA_NO_ENCONTRADA dice que elija otra tarjeta, sin "Reintentar"', async () => {
+    cuotaPrevia.mockRejectedValueOnce(conCodigo(404, 'TARJETA_NO_ENCONTRADA', 'otro texto'));
+
+    await llegar();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(TEXTO.tarjetaYaNoExiste);
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull();
+    expect(plano()).not.toContain('otro texto');
+  });
+
+  it('CA-RNF04-15 una dirección que no existe muestra el texto general con "Reintentar"', async () => {
+    cuotaPrevia.mockRejectedValueOnce(rutaNoEncontrada());
+    await llegar();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(TEXTO.errorCuota);
+    expect(plano()).not.toContain('ya no existe');
+
+    await fireEvent.press(boton('Reintentar'));
+    await vaciar();
+
+    expect(llamadas()).toBe(2);
+    expect(hayEstimacion()).toBe(true);
+  });
+
+  it('CA-RNF04-17 con ERROR_INTERNO muestra el texto general con "Reintentar", sin el message ni el action', async () => {
+    cuotaPrevia.mockRejectedValueOnce(
+      conCodigo(
+        500,
+        'ERROR_INTERNO',
+        'Internal server error',
+        'Inténtalo de nuevo en unos minutos',
+      ),
+    );
+
+    await llegar();
+
+    expect(screen.getByRole('alert')).toHaveTextContent(TEXTO.errorCuota);
+    expect(boton('Reintentar')).toBeOnTheScreen();
+    expect(plano()).not.toMatch(/Internal server error|unos minutos/);
   });
 });

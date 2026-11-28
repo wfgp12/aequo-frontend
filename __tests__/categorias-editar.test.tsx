@@ -13,6 +13,13 @@ import {
   TEXTO,
   verIngresos,
 } from './ayudas/categorias';
+import {
+  CON_TEXTO_GENERAL,
+  conCodigo,
+  desconocido,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
 import { reiniciarRouter } from './ayudas/router-simulado';
 import { boton, laHoja, pendiente, RED, textoDePantalla, VER_TODO } from './ayudas/tarjetas';
 
@@ -233,5 +240,75 @@ describe('Editar categoría: cuando guardar falla', () => {
     await sinHoja();
     expect(screen.queryByText('Mascotas')).toBeNull();
     expect(screen.getByText('Gimnasio')).toBeOnTheScreen();
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Editar categoría: códigos de error', () => {
+  async function fallar(fallo: Error) {
+    renombrar.mockRejectedValueOnce(fallo);
+    await abrir();
+    await escribir('Animales');
+    await guardar();
+    return screen.findByRole('alert');
+  }
+
+  it.each([
+    ['CATEGORIA_DUPLICADA', 409, TEXTO.repetido],
+    ['CATEGORIA_NO_ENCONTRADA', 404, TEXTO.yaNoExiste],
+    ['CATEGORIA_PREDETERMINADA', 403, TEXTO.errorGuardar],
+  ])(
+    'CA-RNF04-20 al renombrar, %s muestra su texto, sin el message ni el action',
+    async (code, status, texto) => {
+      const alerta = await fallar(
+        conCodigo(status, code, 'mensaje del servidor', 'acción del servidor'),
+      );
+
+      expect(alerta).toHaveTextContent(texto);
+      expect(textoDePantalla()).not.toContain('del servidor');
+      expect(campoNombre()).toHaveDisplayValue('Animales');
+    },
+  );
+
+  it('CA-RNF04-20 con CATEGORIA_NO_ENCONTRADA la lista se vuelve a pedir', async () => {
+    await abrir();
+    renombrar.mockRejectedValueOnce(conCodigo(404, 'CATEGORIA_NO_ENCONTRADA'));
+    await escribir('Animales');
+    listar.mockClear();
+
+    await guardar();
+    await screen.findByRole('alert');
+
+    expect(listar).toHaveBeenCalledWith('EGRESO');
+  });
+
+  it('CA-RNF04-15 una dirección que no existe no dice que la categoría ya no existe', async () => {
+    const alerta = await fallar(rutaNoEncontrada());
+
+    expect(alerta).toHaveTextContent(TEXTO.errorGuardar);
+    expect(campoNombre()).toHaveDisplayValue('Animales');
+    expect(boton('Guardar')).toBeEnabled();
+  });
+
+  it.each(CON_TEXTO_GENERAL)(
+    '%s con %s muestra el texto general, sin lo que manda el servidor',
+    async (_id, _code, fallo) => {
+      const alerta = await fallar(fallo);
+
+      expect(alerta).toHaveTextContent(TEXTO.errorGuardar);
+      expect(textoDePantalla()).not.toContain(fallo.message);
+    },
+  );
+
+  it('CA-RNF04-18 con un 404 sin texto propio muestra el message y el action y vuelve a pedir la lista', async () => {
+    await abrir();
+    renombrar.mockRejectedValueOnce(desconocido(404));
+    await escribir('Animales');
+    listar.mockClear();
+
+    await guardar();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(MENSAJE_Y_ACCION);
+    expect(listar).toHaveBeenCalledWith('EGRESO');
   });
 });

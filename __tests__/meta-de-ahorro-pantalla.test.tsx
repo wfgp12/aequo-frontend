@@ -11,6 +11,14 @@ import {
 } from '@/lib/api/ahorro';
 import { ApiError, NetworkError } from '@/lib/api/client';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import {
+  CON_TEXTO_GENERAL,
+  conCodigo,
+  desconocido,
+  errorHttp,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
 
 // Pantalla "Meta de ahorro" (criterios/04-ahorro-meta.md, CA-RF21-F03 a F45). El backend se simula en el borde del
 // adaptador (lib/api/ahorro). Hoy es el 17 de septiembre de 2026 (reloj simulado): el mes actual es 2026-09.
@@ -1262,5 +1270,143 @@ describe('Meta de ahorro: accesibilidad y lenguaje (RNF-04, RNF-06, RNF-11)', ()
       tipoMeta: 'MONTO_FIJO',
       valorObjetivo: 1500000,
     });
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Meta de ahorro: códigos de error', () => {
+  async function fallarAlCrear(fallo: Error) {
+    crear.mockRejectedValueOnce(fallo);
+    await mostrar(null);
+    await escribirMonto('900000');
+    await tocarGuardar();
+    return screen.findByRole('alert');
+  }
+  async function fallarAlEditar(fallo: Error) {
+    actualizar.mockRejectedValueOnce(fallo);
+    await mostrar(META_MONTO);
+    await escribirMonto('1800000');
+    await tocarGuardar();
+    return screen.findByRole('alert');
+  }
+  async function fallarAlQuitar(fallo: Error) {
+    eliminar.mockRejectedValueOnce(fallo);
+    await abrirDialogo();
+    await fireEvent.press(boton('Quitar'));
+  }
+  const claveDeCrear = (n: number) => crear.mock.calls[n][1];
+  async function reintentar() {
+    await tocarGuardar();
+    await waitFor(() => expect(crear).toHaveBeenCalledTimes(2));
+  }
+
+  it('CA-RNF04-07 si todavía se está guardando pide esperar, no recarga ni reemplaza lo escrito y reintenta con la misma clave', async () => {
+    const alerta = await fallarAlCrear(conCodigo(409, 'IDEMPOTENCIA_EN_PROCESO'));
+
+    expect(alerta).toHaveTextContent(
+      'Tu meta todavía se está guardando. Espera unos segundos e inténtalo de nuevo.',
+    );
+    expect(obtener).toHaveBeenCalledTimes(1);
+    expect(campoMonto()).toHaveDisplayValue('$ 900.000');
+    await reintentar();
+    expect(claveDeCrear(1)).toBe(claveDeCrear(0));
+  });
+
+  it('CA-RNF04-08 si la clave ya se usó muestra el texto general y el siguiente intento lleva otra clave', async () => {
+    const alerta = await fallarAlCrear(conCodigo(422, 'IDEMPOTENCIA_CLAVE_REUTILIZADA'));
+
+    expect(alerta).toHaveTextContent(TEXTO.errorGuardar);
+    expect(campoMonto()).toHaveDisplayValue('$ 900.000');
+    await reintentar();
+    expect(claveDeCrear(1)).toMatch(UUID);
+    expect(claveDeCrear(1)).not.toBe(claveDeCrear(0));
+  });
+
+  it('CA-RNF04-09 con META_DUPLICADA avisa y carga la meta guardada', async () => {
+    obtener.mockResolvedValueOnce(null).mockResolvedValue(META_MONTO);
+    crear.mockRejectedValueOnce(conCodigo(409, 'META_DUPLICADA'));
+    await render(<MetaDeAhorro />);
+    await screen.findByRole('button', { name: 'Guardar meta' });
+    await escribirMonto('900000');
+
+    await tocarGuardar();
+
+    expect(await screen.findByText(TEXTO.yaExiste)).toBeOnTheScreen();
+    expect(await screen.findByDisplayValue('$ 1.500.000')).toBeOnTheScreen();
+  });
+
+  it('CA-RNF04-10 con META_CON_AHORRO explica por qué no se puede quitar', async () => {
+    await fallarAlQuitar(conCodigo(409, 'META_CON_AHORRO'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.conAhorro);
+    expect(dialogoAbierto()).toBe(true);
+  });
+
+  it('CA-RNF04-11 con META_NO_ENCONTRADA al guardar dice que la meta ya no existe', async () => {
+    const alerta = await fallarAlEditar(conCodigo(404, 'META_NO_ENCONTRADA'));
+
+    expect(alerta).toHaveTextContent(TEXTO.yaNoExiste);
+  });
+
+  it('CA-RNF04-11 con META_NO_ENCONTRADA al quitar la da por quitada', async () => {
+    await fallarAlQuitar(conCodigo(404, 'META_NO_ENCONTRADA'));
+
+    expect(await screen.findByText(TEXTO.quitada)).toBeOnTheScreen();
+    expect(dialogoAbierto()).toBe(false);
+    expect(hayQuitar()).toBe(false);
+  });
+
+  it('CA-RNF04-15 una dirección que no existe al guardar no olvida la meta: el siguiente intento vuelve a editar', async () => {
+    const alerta = await fallarAlEditar(rutaNoEncontrada());
+
+    expect(alerta).toHaveTextContent(TEXTO.errorGuardar);
+    expect(hayQuitar()).toBe(true);
+
+    await tocarGuardar();
+
+    await waitFor(() => expect(actualizar).toHaveBeenCalledTimes(2));
+    expect(crear).not.toHaveBeenCalled();
+  });
+
+  it('CA-RNF04-15 una dirección que no existe al quitar no da la meta por quitada', async () => {
+    await fallarAlQuitar(rutaNoEncontrada());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.errorQuitar);
+    expect(dialogoAbierto()).toBe(true);
+    expect(screen.queryByText(TEXTO.quitada)).toBeNull();
+  });
+
+  it.each(CON_TEXTO_GENERAL)(
+    '%s con %s muestra el texto general, sin lo que manda el servidor, y reintenta con la misma clave',
+    async (_id, _code, fallo) => {
+      const alerta = await fallarAlCrear(fallo);
+
+      expect(alerta).toHaveTextContent(TEXTO.errorGuardar);
+      expect(screen.queryByText(fallo.message)).toBeNull();
+      await reintentar();
+      expect(claveDeCrear(1)).toBe(claveDeCrear(0));
+    },
+  );
+
+  it('CA-RNF04-17 con ERROR_HTTP al quitar muestra el texto general', async () => {
+    await fallarAlQuitar(errorHttp());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.errorQuitar);
+    expect(dialogoAbierto()).toBe(true);
+  });
+
+  it('CA-RNF04-18 con un 409 sin texto propio al crear muestra el message y el action, sin recargar la meta', async () => {
+    const alerta = await fallarAlCrear(desconocido());
+
+    expect(alerta).toHaveTextContent(MENSAJE_Y_ACCION);
+    expect(obtener).toHaveBeenCalledTimes(1);
+    expect(campoMonto()).toHaveDisplayValue('$ 900.000');
+  });
+
+  it('CA-RNF04-18 con un 409 sin texto propio al quitar muestra el message y el action', async () => {
+    await fallarAlQuitar(desconocido());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(MENSAJE_Y_ACCION);
+    expect(dialogoAbierto()).toBe(true);
   });
 });

@@ -1,4 +1,4 @@
-import { ApiError, NetworkError } from './api/client';
+import { esCaso, mensajeAlCambiar, tieneCodigo } from './errores';
 import type { Categoria, TipoMovimiento } from './api/categorias';
 import { formatearPesos } from './dinero';
 import type {
@@ -111,25 +111,25 @@ export function avisoDeCategoria(tipo: TipoMovimiento) {
 }
 
 // Lenguaje cotidiano, sin jerga técnica (RNF-04)
-const SIN_CONEXION = 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
-
-function estado(e: unknown) {
-  return e instanceof ApiError ? e.status : null;
-}
-
 export function mensajeAlGuardar(e: unknown) {
-  if (e instanceof NetworkError) return SIN_CONEXION;
-  if (estado(e) === 404) return 'Este movimiento ya no existe.';
-  if (estado(e) === 409) {
+  // El movimiento sigue ahí: lo que se eliminó (en otro dispositivo) es la categoría elegida
+  if (tieneCodigo(e, 'CATEGORIA_NO_ENCONTRADA')) return 'Esta categoría ya no existe. Elige otra.';
+  if (esCaso(e, 404, 'TRANSACCION_NO_ENCONTRADA')) return 'Este movimiento ya no existe.';
+  if (esCaso(e, 409, 'TRANSACCION_DE_OTRO_MODULO')) {
     return 'Este movimiento viene de tarjetas o deudas y no se puede cambiar aquí.';
   }
-  return 'No pudimos guardar los cambios. Revisa los datos e inténtalo de nuevo.';
+  return mensajeAlCambiar(
+    e,
+    'No pudimos guardar los cambios. Revisa los datos e inténtalo de nuevo.',
+  );
 }
 
 export function mensajeAlEliminar(e: unknown) {
-  if (e instanceof NetworkError) return SIN_CONEXION;
-  if (estado(e) === 409) {
+  if (esCaso(e, 409, 'TRANSACCION_DE_OTRO_MODULO')) {
     return 'Este movimiento viene de tarjetas o deudas y no se puede eliminar aquí.';
   }
-  return 'No pudimos eliminar el movimiento. Inténtalo de nuevo en unos minutos.';
+  return mensajeAlCambiar(
+    e,
+    'No pudimos eliminar el movimiento. Inténtalo de nuevo en unos minutos.',
+  );
 }

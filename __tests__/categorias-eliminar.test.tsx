@@ -15,6 +15,13 @@ import {
   TEXTO,
   verIngresos,
 } from './ayudas/categorias';
+import {
+  conCodigo,
+  desconocido,
+  errorHttp,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
 import { reiniciarRouter } from './ayudas/router-simulado';
 import { boton, pendiente, RED, textoDePantalla, VER_TODO } from './ayudas/tarjetas';
 
@@ -219,6 +226,70 @@ describe('Eliminar categoría: confirmar', () => {
     await act(async () => {});
 
     expect(eliminar).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Eliminar categoría: códigos de error', () => {
+  async function fallar(fallo: Error) {
+    await abrirDialogo();
+    eliminar.mockRejectedValueOnce(fallo);
+    await fireEvent.press(boton('Eliminar'));
+  }
+  const sigueAhi = () => {
+    expect(dialogoAbierto()).toBe(true);
+    expect(hayMascotas()).toBe(true);
+  };
+
+  it('CA-RNF04-21 con CATEGORIA_NO_ENCONTRADA se da por eliminada, sin aviso', async () => {
+    const servidor = await abrirDialogo();
+    eliminar.mockImplementationOnce(async (id) => {
+      servidor.quitar(id);
+      throw conCodigo(404, 'CATEGORIA_NO_ENCONTRADA');
+    });
+
+    await fireEvent.press(boton('Eliminar'));
+
+    await cerrados();
+    await waitFor(() => expect(hayMascotas()).toBe(false));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('CA-RNF04-21 con CATEGORIA_PREDETERMINADA muestra el texto general de eliminar y la categoría sigue', async () => {
+    await fallar(conCodigo(403, 'CATEGORIA_PREDETERMINADA', 'mensaje del servidor'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.errorEliminar);
+    expect(textoDePantalla()).not.toContain('del servidor');
+    sigueAhi();
+  });
+
+  it('CA-RNF04-15 una dirección que no existe no se da por eliminada', async () => {
+    await fallar(rutaNoEncontrada());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.errorEliminar);
+    sigueAhi();
+  });
+
+  it('CA-RNF04-17 con ERROR_HTTP muestra el texto general y la categoría sigue', async () => {
+    await fallar(errorHttp());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.errorEliminar);
+    sigueAhi();
+  });
+
+  it('CA-RNF04-18 con un 409 sin texto propio muestra el message y el action y la categoría sigue', async () => {
+    await fallar(desconocido());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(MENSAJE_Y_ACCION);
+    sigueAhi();
+    expect(boton('Eliminar')).toBeEnabled();
+  });
+
+  it('CA-RNF04-18 con un 404 sin texto propio se da por eliminada, como hoy', async () => {
+    await fallar(desconocido(404));
+
+    await cerrados();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });

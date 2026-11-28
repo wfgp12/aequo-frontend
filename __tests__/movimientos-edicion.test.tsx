@@ -10,6 +10,14 @@ import {
 } from '@/lib/api/transacciones';
 import { fechaLarga } from '@/lib/fechas';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import {
+  CON_TEXTO_GENERAL,
+  conCodigo,
+  desconocido,
+  errorHttp,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
 
 // Edición y eliminación de un movimiento (criterios/02-registro-edicion-eliminacion.md).
 // Se simula el backend en el borde de los adaptadores con un servidor en memoria: así las pruebas solo miran
@@ -544,6 +552,134 @@ describe('Movimientos: editar y eliminar', () => {
       ).toBeOnTheScreen();
       expect(screen.getByText('¿Eliminar este movimiento?')).toBeOnTheScreen();
       expect(screen.getByText('Almuerzo', VER_TODO)).toBeOnTheScreen();
+    });
+  });
+
+  // criterios/08-codigos-de-error.md
+  describe('códigos de error', () => {
+    const NO_GUARDADO = 'No pudimos guardar los cambios. Revisa los datos e inténtalo de nuevo.';
+    const NO_ELIMINADO = 'No pudimos eliminar el movimiento. Inténtalo de nuevo en unos minutos.';
+
+    async function fallarAlGuardar(fallo: Error) {
+      actualizar.mockRejectedValueOnce(fallo);
+      await render(<Movimientos />);
+      await abrirEdicion();
+      await fireEvent.changeText(campoValor(), '50000');
+      await fireEvent.press(screen.getByText('Guardar cambios'));
+    }
+    async function fallarAlEliminar(fallo: Error) {
+      eliminar.mockRejectedValueOnce(fallo);
+      await render(<Movimientos />);
+      await abrirEdicion();
+      await fireEvent.press(screen.getByText('Eliminar movimiento'));
+      await screen.findByText('¿Eliminar este movimiento?');
+      await fireEvent.press(screen.getByText('Eliminar'));
+    }
+    const dice = async (texto: string | RegExp) =>
+      expect(await screen.findByRole('alert')).toHaveTextContent(texto);
+    const sigueEnElDialogo = () => {
+      expect(screen.getByText('¿Eliminar este movimiento?')).toBeOnTheScreen();
+      expect(screen.getByText('Almuerzo', VER_TODO)).toBeOnTheScreen();
+    };
+
+    it('CA-RNF04-10 con TRANSACCION_DE_OTRO_MODULO al editar explica que no se puede cambiar aquí', async () => {
+      await fallarAlGuardar(conCodigo(409, 'TRANSACCION_DE_OTRO_MODULO'));
+
+      await dice('Este movimiento viene de tarjetas o deudas y no se puede cambiar aquí.');
+    });
+
+    it('CA-RNF04-10 con TRANSACCION_DE_OTRO_MODULO al eliminar explica que no se puede eliminar aquí', async () => {
+      await fallarAlEliminar(conCodigo(409, 'TRANSACCION_DE_OTRO_MODULO'));
+
+      await dice('Este movimiento viene de tarjetas o deudas y no se puede eliminar aquí.');
+      sigueEnElDialogo();
+    });
+
+    it('CA-RNF04-11 con TRANSACCION_NO_ENCONTRADA al editar dice que ya no existe', async () => {
+      await fallarAlGuardar(conCodigo(404, 'TRANSACCION_NO_ENCONTRADA'));
+
+      await dice('Este movimiento ya no existe.');
+    });
+
+    it('CA-RNF04-11 con TRANSACCION_NO_ENCONTRADA al eliminar se da por eliminado, sin aviso', async () => {
+      await fallarAlEliminar(conCodigo(404, 'TRANSACCION_NO_ENCONTRADA'));
+
+      await waitFor(() => expect(screen.queryByText('¿Eliminar este movimiento?')).toBeNull());
+      await sheetCerrada();
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('CA-RNF04-15 una dirección que no existe al editar no dice que el movimiento ya no existe', async () => {
+      await fallarAlGuardar(rutaNoEncontrada());
+
+      await dice(NO_GUARDADO);
+      expect(campoValor().props.value).toBe('$ 50.000');
+    });
+
+    it('CA-RNF04-15 una dirección que no existe al eliminar no lo da por eliminado', async () => {
+      await fallarAlEliminar(rutaNoEncontrada());
+
+      await dice(NO_ELIMINADO);
+      sigueEnElDialogo();
+    });
+
+    it.each(CON_TEXTO_GENERAL)(
+      '%s con %s al editar muestra el texto general, sin lo que manda el servidor',
+      async (_id, _code, fallo) => {
+        await fallarAlGuardar(fallo);
+
+        await dice(NO_GUARDADO);
+        expect(screen.queryByText(fallo.message)).toBeNull();
+        expect(campoValor().props.value).toBe('$ 50.000');
+      },
+    );
+
+    it('CA-RNF04-23 si la categoría elegida ya no existe lo dice, conserva lo escrito y deja elegir otra y guardar', async () => {
+      actualizar.mockRejectedValueOnce(
+        conCodigo(404, 'CATEGORIA_NO_ENCONTRADA', 'mensaje del servidor', 'acción del servidor'),
+      );
+      await render(<Movimientos />);
+      await abrirEdicion();
+      await fireEvent.changeText(campoValor(), '50000');
+      await fireEvent.press(campoCategoria());
+      await fireEvent.press(await screen.findByLabelText('Transporte'));
+
+      await fireEvent.press(screen.getByText('Guardar cambios'));
+
+      await dice('Esta categoría ya no existe. Elige otra.');
+      expect(screen.queryByText('Este movimiento ya no existe.')).toBeNull();
+      expect(screen.queryByText(/del servidor/)).toBeNull();
+      expect(screen.getByText('Editar movimiento')).toBeOnTheScreen();
+      expect(campoValor().props.value).toBe('$ 50.000');
+
+      await fireEvent.press(campoCategoria());
+      await fireEvent.press(await screen.findByLabelText('Alimentación'));
+      await fireEvent.changeText(campoValor(), '60000');
+      await fireEvent.press(screen.getByText('Guardar cambios'));
+
+      await sheetCerrada();
+      expect(actualizar).toHaveBeenCalledTimes(2);
+    });
+
+    it('CA-RNF04-17 con ERROR_HTTP al eliminar muestra el texto general', async () => {
+      await fallarAlEliminar(errorHttp());
+
+      await dice(NO_ELIMINADO);
+      sigueEnElDialogo();
+    });
+
+    it('CA-RNF04-18 con un 409 sin texto propio al editar muestra el message y el action', async () => {
+      await fallarAlGuardar(desconocido());
+
+      await dice(MENSAJE_Y_ACCION);
+      expect(campoValor().props.value).toBe('$ 50.000');
+    });
+
+    it('CA-RNF04-18 con un 409 sin texto propio al eliminar muestra el message y el action', async () => {
+      await fallarAlEliminar(desconocido());
+
+      await dice(MENSAJE_Y_ACCION);
+      sigueEnElDialogo();
     });
   });
 });

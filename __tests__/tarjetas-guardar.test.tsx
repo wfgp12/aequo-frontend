@@ -13,6 +13,13 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { AMEX, crearServidorDeTarjetas, VISA, VISA_ID } from './ayudas/datos-tarjetas';
 import { mostrarDetalle } from './ayudas/detalle-tarjeta';
 import {
+  CON_TEXTO_GENERAL,
+  conCodigo,
+  desconocido,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
+import {
   alternar,
   boton,
   interruptor,
@@ -500,3 +507,87 @@ describe('Errores al guardar una tarjeta', () => {
 function crearConError(error: Error) {
   crear.mockRejectedValueOnce(error);
 }
+
+// criterios/08-codigos-de-error.md
+describe('Guardar una tarjeta: códigos de error', () => {
+  async function fallarAlCrear(fallo: Error) {
+    await nuevaLlena();
+    crearConError(fallo);
+    await fireEvent.press(guardar());
+    return screen.findByRole('alert');
+  }
+
+  async function reintentar() {
+    await fireEvent.press(guardar());
+    await waitFor(() => expect(crear).toHaveBeenCalledTimes(2));
+  }
+
+  it('CA-RNF04-07 si todavía se está guardando pide esperar, no dice que está repetida, y reintenta con la misma clave', async () => {
+    const alerta = await fallarAlCrear(conCodigo(409, 'IDEMPOTENCIA_EN_PROCESO'));
+
+    expect(alerta).toHaveTextContent(
+      'Tu tarjeta todavía se está guardando. Espera unos segundos e inténtalo de nuevo.',
+    );
+    expect(campoAlias()).toHaveDisplayValue('Visa Bancolombia');
+    await reintentar();
+    expect(clavesUsadas()[1]).toBe(clavesUsadas()[0]);
+  });
+
+  it('CA-RNF04-08 si la clave ya se usó muestra el texto general y el siguiente intento lleva otra clave', async () => {
+    const alerta = await fallarAlCrear(conCodigo(422, 'IDEMPOTENCIA_CLAVE_REUTILIZADA'));
+
+    expect(alerta).toHaveTextContent(TEXTO.errorGuardar);
+    expect(campoAlias()).toHaveDisplayValue('Visa Bancolombia');
+    await reintentar();
+    expect(clavesUsadas()[1]).toMatch(UUID);
+    expect(clavesUsadas()[1]).not.toBe(clavesUsadas()[0]);
+  });
+
+  it('CA-RNF04-09 con TARJETA_DUPLICADA dice que el alias está repetido', async () => {
+    const alerta = await fallarAlCrear(conCodigo(409, 'TARJETA_DUPLICADA'));
+
+    expect(alerta).toHaveTextContent(TEXTO.repetido);
+  });
+
+  it('CA-RNF04-11 con TARJETA_NO_ENCONTRADA al editar dice que la tarjeta ya no existe', async () => {
+    await abrirEdicion();
+    actualizar.mockRejectedValueOnce(conCodigo(404, 'TARJETA_NO_ENCONTRADA'));
+    await escribirAlias('Visa Oro');
+
+    await fireEvent.press(guardar());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.yaNoExiste);
+  });
+
+  it('CA-RNF04-15 una dirección que no existe al editar no dice que la tarjeta ya no existe', async () => {
+    await abrirEdicion();
+    actualizar.mockRejectedValueOnce(rutaNoEncontrada());
+    await escribirAlias('Visa Oro');
+
+    await fireEvent.press(guardar());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.errorGuardar);
+    expect(screen.queryByText(TEXTO.yaNoExiste)).toBeNull();
+    expect(campoAlias()).toHaveDisplayValue('Visa Oro');
+  });
+
+  it.each(CON_TEXTO_GENERAL)(
+    '%s con %s muestra el texto general, sin lo que manda el servidor, y reintenta con la misma clave',
+    async (_id, _code, fallo) => {
+      const alerta = await fallarAlCrear(fallo);
+
+      expect(alerta).toHaveTextContent(TEXTO.errorGuardar);
+      expect(textoDePantalla()).not.toContain(fallo.message);
+      await reintentar();
+      expect(clavesUsadas()[1]).toBe(clavesUsadas()[0]);
+    },
+  );
+
+  it('CA-RNF04-18 con un 409 sin texto propio muestra el message y el action, no que está repetida', async () => {
+    const alerta = await fallarAlCrear(desconocido());
+
+    expect(alerta).toHaveTextContent(MENSAJE_Y_ACCION);
+    expect(campoAlias()).toHaveDisplayValue('Visa Bancolombia');
+    await reintentar();
+  });
+});

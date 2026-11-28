@@ -5,12 +5,12 @@ import { DialogoEliminarMovimiento } from '@/components/movimientos/dialogo-elim
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import type { TipoMovimiento } from '@/lib/api/categorias';
-import { ApiError } from '@/lib/api/client';
 import {
   actualizarTransaccion,
   MAX_DESCRIPCION,
   type TransaccionListada,
 } from '@/lib/api/transacciones';
+import { esApi, yaNoExiste } from '@/lib/errores';
 import { fechaDdMmAaaa } from '@/lib/fechas';
 import {
   AVISO_TARJETA_AL_EDITAR,
@@ -207,9 +207,9 @@ export function HojaEditarMovimiento({ item, onCerrar, onCambio }: Props) {
       onCerrar();
     } catch (e) {
       // Si ya no existe, la lista debe dejar de mostrarlo aunque la hoja siga abierta con el aviso
-      if (e instanceof ApiError && e.status === 404) onCambio();
+      if (yaNoExiste(e)) onCambio();
       // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
-      setError(mensajeAlGuardar(e));
+      if (!esApi(e, 401)) setError(mensajeAlGuardar(e));
     } finally {
       enVuelo.current = false;
       setGuardando(false);

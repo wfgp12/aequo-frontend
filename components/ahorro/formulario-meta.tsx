@@ -10,7 +10,15 @@ import {
   type MetaAhorro,
   type TipoMeta,
 } from '@/lib/api/ahorro';
-import { ApiError, NetworkError } from '@/lib/api/client';
+import {
+  claveGastada,
+  esApi,
+  esCaso,
+  mensajeAlCambiar,
+  textoEnProceso,
+  tieneCodigo,
+  yaNoExiste,
+} from '@/lib/errores';
 import { cn } from '@/lib/utils';
 import { randomUUID } from 'expo-crypto';
 import { useRef, useState } from 'react';
@@ -30,9 +38,7 @@ const AYUDA: Record<TipoMeta, string> = {
     'Es la parte de tus ingresos que quieres que te quede cada mes, después de restar tus egresos.',
 };
 
-const ERROR_RED = 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
 const ERROR_GENERAL = 'No pudimos guardar tu meta. Revisa el valor e inténtalo de nuevo.';
-const esApi = (e: unknown, status: number) => e instanceof ApiError && e.status === status;
 
 type Lectura = { valor: number } | { error: string };
 
@@ -199,20 +205,25 @@ export function FormularioMeta({ metaInicial, mes, mesLargo, onMetaCambiada }: P
   async function explicarFallo(e: unknown) {
     // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
     if (esApi(e, 401)) return;
-    if (e instanceof NetworkError) return setAviso({ texto: ERROR_RED });
-    if (metaId && esApi(e, 404)) {
+    if (claveGastada(e)) intento.current = null;
+    // La meta sigue en proceso: no se recarga ni se reemplaza lo escrito
+    if (tieneCodigo(e, 'IDEMPOTENCIA_EN_PROCESO'))
+      return setAviso({ texto: textoEnProceso('meta') });
+    if (metaId && yaNoExiste(e)) {
       // La meta la quitaron en otro lado: lo escrito se conserva y el siguiente guardado crea una nueva
       setMetaId(null);
       onMetaCambiada();
       return setAviso({
-        texto: 'Esta meta ya no existe. Vuelve a guardarla para crearla de nuevo.',
+        texto: esCaso(e, 404, 'META_NO_ENCONTRADA')
+          ? 'Esta meta ya no existe. Vuelve a guardarla para crearla de nuevo.'
+          : mensajeAlCambiar(e, ERROR_GENERAL),
       });
     }
-    if (!metaId && esApi(e, 409)) {
+    if (!metaId && esCaso(e, 409, 'META_DUPLICADA')) {
       onMetaCambiada();
       return mostrarLaGuardada();
     }
-    setAviso({ texto: ERROR_GENERAL });
+    setAviso({ texto: mensajeAlCambiar(e, ERROR_GENERAL) });
   }
 
   async function guardar() {

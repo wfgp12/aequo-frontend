@@ -8,10 +8,10 @@ import { PasoFecha } from '@/components/registro/paso-fecha';
 import { PasoMetodoPago } from '@/components/registro/paso-metodo-pago';
 import { PasoValor } from '@/components/registro/paso-valor';
 import type { Categoria, TipoMovimiento } from '@/lib/api/categorias';
-import { ApiError, NetworkError } from '@/lib/api/client';
 import { registrarCompra, type CompraCredito, type DatosCompra } from '@/lib/api/tarjetas';
 import { crearTransaccion, type NuevaTransaccion } from '@/lib/api/transacciones';
 import { formatearPesos } from '@/lib/dinero';
+import { esCaso, mensajeAlCambiar, textoEnProceso, tieneCodigo } from '@/lib/errores';
 import { hoy } from '@/lib/fechas';
 import type { OpcionDeMetodo } from '@/lib/metodos-de-pago';
 import { ETIQUETA_METODO } from '@/lib/movimientos';
@@ -28,14 +28,15 @@ import { useState, type ReactNode } from 'react';
 
 // Lenguaje cotidiano, sin jerga técnica (RNF-04)
 function mensajeDeError(e: unknown) {
-  if (e instanceof NetworkError) {
-    return 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
-  }
   // 409: el backend sigue procesando el primer intento con esta misma clave
-  if (e instanceof ApiError && e.status === 409) {
-    return 'Tu movimiento todavía se está guardando. Espera unos segundos e inténtalo de nuevo.';
+  if (esCaso(e, 409, 'IDEMPOTENCIA_EN_PROCESO')) return textoEnProceso('movimiento');
+  if (tieneCodigo(e, 'CATEGORIA_NO_ENCONTRADA')) {
+    return 'Esta categoría ya no existe. Vuelve atrás y elige otra.';
   }
-  return 'No pudimos guardar tu movimiento. Revisa los datos e inténtalo de nuevo.';
+  return mensajeAlCambiar(
+    e,
+    'No pudimos guardar tu movimiento. Revisa los datos e inténtalo de nuevo.',
+  );
 }
 
 type Paso = 'valor' | 'categoria' | 'metodo' | 'tarjeta' | 'cuotas' | 'fecha' | 'nota';

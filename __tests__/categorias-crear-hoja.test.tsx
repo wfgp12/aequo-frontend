@@ -3,6 +3,15 @@ import { PasoCategoria } from '@/components/registro/paso-categoria';
 import { crearCategoria, listarCategorias, type Categoria } from '@/lib/api/categorias';
 import { ApiError, NetworkError } from '@/lib/api/client';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import {
+  CODIGOS_Y_TECNICISMOS,
+  CON_TEXTO_GENERAL,
+  conCodigo,
+  desconocido,
+  desconocidoSinAccion,
+  MENSAJE_Y_ACCION,
+  SOLO_MENSAJE,
+} from './ayudas/errores';
 
 // Crear una categoría desde el selector (criterios/02-categorias-crear.md): el botón "+ Agregar categoría" y la
 // hoja "Nueva categoría" en ListaDeCategorias, con el backend simulado en el borde del adaptador.
@@ -502,6 +511,94 @@ describe('Crear categoría desde el selector (hoja "Nueva categoría")', () => {
           /409|422|500|400|idempotenc|payload|INGRESO|EGRESO|ApiError|NetworkError|internal server/i,
         );
         expect(alerta).toHaveTextContent(/categoría|nombre|internet|servidor/i);
+      },
+    );
+  });
+
+  // criterios/08-codigos-de-error.md
+  describe('códigos de error', () => {
+    async function fallar(fallo: Error) {
+      crear.mockRejectedValueOnce(fallo);
+      await abrirHoja();
+      await escribirYGuardar('Plantas');
+      return screen.findByRole('alert');
+    }
+
+    async function reintentar() {
+      await fireEvent.press(guardar());
+      await waitFor(() => expect(crear).toHaveBeenCalledTimes(2));
+    }
+
+    it('CA-RNF04-07 si todavía se está guardando pide esperar, no dice que está repetida, y reintenta con la misma clave', async () => {
+      const alerta = await fallar(conCodigo(409, 'IDEMPOTENCIA_EN_PROCESO'));
+
+      expect(alerta).toHaveTextContent(
+        'Tu categoría todavía se está guardando. Espera unos segundos e inténtalo de nuevo.',
+      );
+      expect(campoNombre()).toHaveDisplayValue('Plantas');
+      await reintentar();
+      expect(clavesUsadas()[1]).toBe(clavesUsadas()[0]);
+    });
+
+    it('CA-RNF04-08 si la clave ya se usó muestra el texto general y el siguiente intento lleva otra clave', async () => {
+      const alerta = await fallar(conCodigo(422, 'IDEMPOTENCIA_CLAVE_REUTILIZADA'));
+
+      expect(alerta).toHaveTextContent(TEXTO_GENERAL);
+      expect(campoNombre()).toHaveDisplayValue('Plantas');
+      await reintentar();
+      expect(clavesUsadas()[1]).toMatch(UUID);
+      expect(clavesUsadas()[1]).not.toBe(clavesUsadas()[0]);
+    });
+
+    it('CA-RNF04-09 con CATEGORIA_DUPLICADA dice que el nombre está repetido', async () => {
+      const alerta = await fallar(
+        conCodigo(409, 'CATEGORIA_DUPLICADA', 'x', 'Usa otro nombre o la categoría que ya existe'),
+      );
+
+      expect(alerta).toHaveTextContent(TEXTO_REPETIDO);
+    });
+
+    it.each(CON_TEXTO_GENERAL)(
+      '%s con %s muestra el texto general, sin lo que manda el servidor, y reintenta con la misma clave',
+      async (_id, _code, fallo) => {
+        const alerta = await fallar(fallo);
+
+        expect(alerta).toHaveTextContent(TEXTO_GENERAL);
+        expect(alerta).not.toHaveTextContent(CODIGOS_Y_TECNICISMOS);
+        await reintentar();
+        expect(clavesUsadas()[1]).toBe(clavesUsadas()[0]);
+      },
+    );
+
+    it('CA-RNF04-18 con un 409 sin texto propio muestra el message y el action, no que está repetida', async () => {
+      const alerta = await fallar(desconocido());
+
+      expect(alerta).toHaveTextContent(MENSAJE_Y_ACCION);
+      expect(hojaAbierta()).toBe(true);
+      expect(campoNombre()).toHaveDisplayValue('Plantas');
+      await reintentar();
+    });
+
+    it('CA-RNF04-18 y CA-RNF04-19 sin action muestra solo el message, sin "undefined", "null" ni el code', async () => {
+      const alerta = await fallar(desconocidoSinAccion());
+
+      expect(alerta).toHaveTextContent(SOLO_MENSAJE);
+      expect(textosEnOrden().join(' ')).not.toMatch(CODIGOS_Y_TECNICISMOS);
+    });
+
+    it.each([
+      ['IDEMPOTENCIA_EN_PROCESO', 409],
+      ['IDEMPOTENCIA_CLAVE_REUTILIZADA', 422],
+      ['CATEGORIA_DUPLICADA', 409],
+      ['VALIDACION', 400],
+      ['ERROR_INTERNO', 500],
+    ])(
+      'CA-RNF04-19 el aviso de %s es una alerta sin códigos ni términos técnicos',
+      async (code, status) => {
+        const alerta = await fallar(conCodigo(status, code));
+
+        expect(alerta).not.toHaveTextContent(CODIGOS_Y_TECNICISMOS);
+        expect(textosEnOrden().join(' ')).not.toMatch(CODIGOS_Y_TECNICISMOS);
       },
     );
   });

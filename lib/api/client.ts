@@ -6,6 +6,10 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** Identificador estable del error: la app decide por él y, si falta, por el estado HTTP. */
+    readonly code?: string,
+    /** Qué puede hacer el usuario, en español. */
+    readonly action?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -54,11 +58,17 @@ export async function request<T>(
   } catch {
     throw new NetworkError();
   }
-  const data = await res.json().catch(() => null);
+  let esJson = true;
+  const data = await res.json().catch(() => {
+    esJson = false;
+    return null;
+  });
   if (!res.ok) {
+    // Un error que no es JSON lo responde el hosting (502/503 mientras el servidor arranca), no el backend
+    if (!esJson) throw new NetworkError();
     // message llega como string, o como string[] en los 400 de validación
     const message = Array.isArray(data?.message) ? data.message.join(', ') : data?.message;
-    throw new ApiError(res.status, message ?? res.statusText);
+    throw new ApiError(res.status, message ?? res.statusText, data?.code, data?.action);
   }
   return data as T;
 }

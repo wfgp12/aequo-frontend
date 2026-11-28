@@ -1,4 +1,4 @@
-import { esApi } from '@/lib/errores';
+import { claveGastada, esApi } from '@/lib/errores';
 import { randomUUID } from 'expo-crypto';
 import { useRef, useState } from 'react';
 
@@ -30,6 +30,7 @@ export function useGuardarRegistro<R>() {
         intento.current = { huella: texto, clave: randomUUID() };
       setGuardado(await enviar(intento.current.clave));
     } catch (e) {
+      if (claveGastada(e)) intento.current = null;
       // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
       if (!esApi(e, 401)) setError(mensajeDeError(e));
     } finally {

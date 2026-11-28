@@ -30,6 +30,13 @@ import {
   VISA_ID,
   VISA_T,
 } from './ayudas/compra-tarjeta';
+import {
+  CON_TEXTO_GENERAL,
+  conCodigo,
+  desconocido,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
 import { boton, pendiente, RED, UUID } from './ayudas/tarjetas';
 
 // Guardar el avance en efectivo desde el resumen (criterios/05-compra-con-tarjeta.md, CA-RF28-F08 a F13). El backend
@@ -380,5 +387,79 @@ describe('Guardar el avance: la clave de idempotencia', () => {
     expect(cuerpo(1)).toEqual(cuerpo(0));
     expect(clave(1)).toMatch(UUID);
     expect(clave(1)).not.toBe(clave(0));
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Guardar el avance: códigos de error', () => {
+  async function fallar(fallo: Error) {
+    avanzar.mockRejectedValueOnce(fallo);
+    await avanceHastaElResumen();
+    await fireEvent.press(guardar());
+    return screen.findByRole('alert');
+  }
+
+  async function reintentar() {
+    await fireEvent.press(guardar());
+    await screen.findByText('¡Listo!');
+    expect(avanzar).toHaveBeenCalledTimes(2);
+  }
+
+  it('CA-RNF04-07 si todavía se está guardando pide esperar y reintenta con la misma clave', async () => {
+    const alerta = await fallar(conCodigo(409, 'IDEMPOTENCIA_EN_PROCESO'));
+
+    expect(alerta).toHaveTextContent(TEXTO.procesandoAvance);
+    await reintentar();
+    expect(clave(1)).toBe(clave(0));
+  });
+
+  it('CA-RNF04-08 si la clave ya se usó muestra el texto general y el siguiente intento lleva otra clave', async () => {
+    const alerta = await fallar(conCodigo(422, 'IDEMPOTENCIA_CLAVE_REUTILIZADA'));
+
+    expect(alerta).toHaveTextContent(TEXTO.errorAvance);
+    await reintentar();
+    expect(clave(1)).toMatch(UUID);
+    expect(clave(1)).not.toBe(clave(0));
+  });
+
+  it('CA-RNF04-11 con TARJETA_NO_ENCONTRADA dice que la tarjeta ya no existe, sin depender del message', async () => {
+    const alerta = await fallar(conCodigo(404, 'TARJETA_NO_ENCONTRADA', 'otro texto'));
+
+    expect(alerta).toHaveTextContent(TEXTO.tarjetaYaNoExiste);
+    expect(plano()).not.toContain('otro texto');
+  });
+
+  it.each(['Not Found', 'Categoría no encontrada'])(
+    'CA-RNF04-13 con un 404 sin code (mensaje "%s") dice que la tarjeta ya no existe',
+    async (mensaje) => {
+      const alerta = await fallar(new ApiError(404, mensaje));
+
+      expect(alerta).toHaveTextContent(TEXTO.tarjetaYaNoExiste);
+      expect(plano()).not.toContain(mensaje);
+    },
+  );
+
+  it('CA-RNF04-15 una dirección que no existe muestra el texto general', async () => {
+    const alerta = await fallar(rutaNoEncontrada());
+
+    expect(alerta).toHaveTextContent(TEXTO.errorAvance);
+    expect(plano()).not.toContain('ya no existe');
+  });
+
+  it.each(CON_TEXTO_GENERAL)(
+    '%s con %s muestra el texto general, sin lo que manda el servidor',
+    async (_id, _code, fallo) => {
+      const alerta = await fallar(fallo);
+
+      expect(alerta).toHaveTextContent(TEXTO.errorAvance);
+      expect(plano()).not.toContain(fallo.message);
+    },
+  );
+
+  it('CA-RNF04-18 con un caso sin texto propio muestra el message y debajo el action', async () => {
+    const alerta = await fallar(desconocido());
+
+    expect(alerta).toHaveTextContent(MENSAJE_Y_ACCION);
+    await reintentar();
   });
 });

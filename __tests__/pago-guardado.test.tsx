@@ -24,6 +24,13 @@ import {
   VISA_ID,
 } from './ayudas/detalle-tarjeta';
 import {
+  CON_TEXTO_GENERAL,
+  conCodigo,
+  desconocido,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
+import {
   abrirHoja,
   botonGuardarPago,
   campoNota,
@@ -506,5 +513,75 @@ describe('Registrar un pago: la clave de idempotencia y la sesión', () => {
     expect(hayTexto(TEXTO_PAGO.procesando)).toBe(false);
     expect(hayTexto(RED)).toBe(false);
     expect(hayTexto(TEXTO.yaNoExiste)).toBe(false);
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Registrar un pago: códigos de error', () => {
+  async function fallar(fallo: Error) {
+    registrarPagoSimulado().mockRejectedValueOnce(fallo);
+    await hojaConCifras();
+    await fireEvent.press(botonGuardarPago());
+    return screen.findByRole('alert');
+  }
+  async function reintentar() {
+    await fireEvent.press(botonGuardarPago());
+    await waitFor(() => expect(registrarPagoSimulado()).toHaveBeenCalledTimes(2));
+  }
+
+  it('CA-RNF04-07 si todavía se está guardando pide esperar y reintenta con la misma clave', async () => {
+    const alerta = await fallar(conCodigo(409, 'IDEMPOTENCIA_EN_PROCESO'));
+
+    expect(alerta).toHaveTextContent(TEXTO_PAGO.procesando);
+    await reintentar();
+    expect(clavesDePago()[1]).toBe(clavesDePago()[0]);
+  });
+
+  it('CA-RNF04-08 si la clave ya se usó muestra el texto general y el siguiente intento lleva otra clave', async () => {
+    const alerta = await fallar(conCodigo(422, 'IDEMPOTENCIA_CLAVE_REUTILIZADA'));
+
+    expect(alerta).toHaveTextContent(TEXTO_PAGO.errorGuardar);
+    expect(campoValor()).toHaveDisplayValue('$ 100.000');
+    await reintentar();
+    expect(clavesDePago()[1]).toMatch(UUID);
+    expect(clavesDePago()[1]).not.toBe(clavesDePago()[0]);
+  });
+
+  it('CA-RNF04-11 con TARJETA_NO_ENCONTRADA dice que la tarjeta ya no existe', async () => {
+    const alerta = await fallar(conCodigo(404, 'TARJETA_NO_ENCONTRADA'));
+
+    expect(alerta).toHaveTextContent(TEXTO.yaNoExiste);
+  });
+
+  it('CA-RNF04-13 con un 404 sin code dice que la tarjeta ya no existe, diga lo que diga el message', async () => {
+    const alerta = await fallar(new ApiError(404, 'Not Found'));
+
+    expect(alerta).toHaveTextContent(TEXTO.yaNoExiste);
+  });
+
+  it('CA-RNF04-15 una dirección que no existe muestra el texto general', async () => {
+    const alerta = await fallar(rutaNoEncontrada());
+
+    expect(alerta).toHaveTextContent(TEXTO_PAGO.errorGuardar);
+    expect(screen.queryByText(TEXTO.yaNoExiste, VER_TODO)).toBeNull();
+    expect(campoValor()).toHaveDisplayValue('$ 100.000');
+  });
+
+  it.each(CON_TEXTO_GENERAL)(
+    '%s con %s muestra el texto general, sin lo que manda el servidor',
+    async (_id, _code, fallo) => {
+      const alerta = await fallar(fallo);
+
+      expect(alerta).toHaveTextContent(TEXTO_PAGO.errorGuardar);
+      expect(screen.queryByText(fallo.message, VER_TODO)).toBeNull();
+    },
+  );
+
+  it('CA-RNF04-18 con un caso sin texto propio muestra el message y el action y deja reintentar', async () => {
+    const alerta = await fallar(desconocido());
+
+    expect(alerta).toHaveTextContent(MENSAJE_Y_ACCION);
+    expect(campoValor()).toHaveDisplayValue('$ 100.000');
+    await reintentar();
   });
 });

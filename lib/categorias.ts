@@ -1,5 +1,11 @@
 import type { TipoMovimiento } from '@/lib/api/categorias';
-import { esApi, mensajeDeFallo } from '@/lib/errores';
+import {
+  esCaso,
+  mensajeAlCambiar,
+  mensajeDeFallo,
+  textoEnProceso,
+  tieneCodigo,
+} from '@/lib/errores';
 import type { Lectura } from '@/lib/use-guardar-hoja';
 
 // Reglas de presentación de las categorías: qué se valida antes de llamar al backend y cómo se le explica cada
@@ -15,15 +21,17 @@ export function leerNombre(nombre: string): Lectura<{ nombre: string }> {
 }
 
 export function mensajeAlGuardarCategoria(e: unknown) {
-  if (esApi(e, 409)) return 'Ya existe una categoría con ese nombre. Prueba con otro.';
-  return mensajeDeFallo(
+  if (tieneCodigo(e, 'IDEMPOTENCIA_EN_PROCESO')) return textoEnProceso('categoría');
+  if (esCaso(e, 409, 'CATEGORIA_DUPLICADA'))
+    return 'Ya existe una categoría con ese nombre. Prueba con otro.';
+  return mensajeAlCambiar(
     e,
     'No pudimos guardar la categoría. Revisa el nombre e inténtalo de nuevo.',
   );
 }
 
 export const mensajeAlEliminarCategoria = (e: unknown) =>
-  mensajeDeFallo(e, 'No pudimos eliminar la categoría. Inténtalo de nuevo en unos minutos.');
+  mensajeAlCambiar(e, 'No pudimos eliminar la categoría. Inténtalo de nuevo en unos minutos.');
 
 export const fallosDeCategorias = (e: unknown) => ({
   mensaje: mensajeDeFallo(

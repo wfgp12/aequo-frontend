@@ -12,6 +12,14 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { AMEX, crearServidorDeTarjetas, VISA, VISA_ID } from './ayudas/datos-tarjetas';
 import { mostrarDetalle } from './ayudas/detalle-tarjeta';
 import {
+  CODIGOS_Y_TECNICISMOS,
+  conCodigo,
+  desconocido,
+  errorHttp,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
+import {
   boton,
   gestoAtras,
   pendiente,
@@ -265,5 +273,67 @@ describe('Eliminar una tarjeta: accesibilidad y lenguaje (RNF-04, RNF-06)', () =
     await screen.findByText(TEXTO.conPagos);
 
     expect(textoDePantalla()).not.toMatch(TECNICO);
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Eliminar una tarjeta: códigos de error', () => {
+  async function fallar(fallo: Error) {
+    await abrirDialogo();
+    eliminar.mockRejectedValueOnce(fallo);
+    await fireEvent.press(boton('Eliminar'));
+  }
+  const sigueAhi = () => {
+    expect(dialogoAbierto()).toBe(true);
+    expect(hayVisa()).toBe(true);
+    expect(mockBack).not.toHaveBeenCalled();
+  };
+
+  it.each(['TARJETA_CON_COMPRAS', 'TARJETA_CON_PAGOS'])(
+    'CA-RNF04-10 con %s explica que tiene compras o pagos y la tarjeta sigue',
+    async (code) => {
+      await fallar(conCodigo(409, code, 'mensaje del servidor', 'acción del servidor'));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.conPagos);
+      expect(textoDePantalla()).not.toContain('del servidor');
+      expect(textoDePantalla()).not.toMatch(CODIGOS_Y_TECNICISMOS);
+      sigueAhi();
+    },
+  );
+
+  it('CA-RNF04-11 con TARJETA_NO_ENCONTRADA el diálogo se cierra sin aviso', async () => {
+    await abrirDialogo();
+    eliminar.mockImplementationOnce(async () => {
+      servidor.items = servidor.items.filter((t) => t.id !== VISA_ID);
+      throw conCodigo(404, 'TARJETA_NO_ENCONTRADA');
+    });
+
+    await fireEvent.press(boton('Eliminar'));
+
+    await sinDialogo();
+    await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('CA-RNF04-15 una dirección que no existe no da la tarjeta por eliminada', async () => {
+    await fallar(rutaNoEncontrada());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.errorEliminar);
+    sigueAhi();
+  });
+
+  it('CA-RNF04-17 con ERROR_HTTP muestra el texto general y la tarjeta sigue', async () => {
+    await fallar(errorHttp());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.errorEliminar);
+    sigueAhi();
+  });
+
+  it('CA-RNF04-18 con un 409 sin texto propio muestra el message y el action, no que tiene compras', async () => {
+    await fallar(desconocido());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(MENSAJE_Y_ACCION);
+    sigueAhi();
+    expect(boton('Eliminar')).toBeEnabled();
   });
 });

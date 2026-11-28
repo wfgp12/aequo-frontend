@@ -32,6 +32,7 @@ import {
   VISA,
   VISA_ID,
 } from './ayudas/detalle-tarjeta';
+import { conCodigo, rutaNoEncontrada } from './ayudas/errores';
 import { reiniciarRouter, router } from './ayudas/router-simulado';
 import { boton, pendiente, RED } from './ayudas/tarjetas';
 
@@ -440,5 +441,35 @@ describe('Detalle de la tarjeta: cuándo aparecen "Editar tarjeta" y "Ver cargos
     expect(screen.getByLabelText(TEXTO.cargando)).toBeOnTheScreen();
     expect(boton('Editar tarjeta')).toBeOnTheScreen();
     expect(boton('Ver cargos fijos')).toBeOnTheScreen();
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Detalle de la tarjeta: códigos de error al cargar', () => {
+  it('CA-RNF04-11 con TARJETA_NO_ENCONTRADA dice que ya no existe, sin "Reintentar"', async () => {
+    proyeccionPedida().mockRejectedValue(conCodigo(404, 'TARJETA_NO_ENCONTRADA'));
+
+    await dibujarDetalle();
+
+    expect(await screen.findByText(TEXTO.yaNoExiste)).toBeOnTheScreen();
+    expect(hayBoton('Reintentar')).toBe(false);
+  });
+
+  it.each([
+    ['CA-RNF04-15', 'una dirección que no existe', rutaNoEncontrada()],
+    ['CA-RNF04-17', 'ERROR_HTTP', conCodigo(429, 'ERROR_HTTP', 'Too Many Requests')],
+    ['CA-RNF04-17', 'ERROR_INTERNO', conCodigo(500, 'ERROR_INTERNO', 'Internal server error')],
+  ])('%s con %s muestra el texto general y deja reintentar', async (_id, _caso, fallo) => {
+    proyeccionPedida().mockRejectedValueOnce(fallo);
+    await dibujarDetalle();
+
+    expect(await screen.findByText(TEXTO.errorCarga)).toBeOnTheScreen();
+    expect(screen.queryByText(TEXTO.yaNoExiste)).toBeNull();
+    expect(screen.queryByText(fallo.message)).toBeNull();
+
+    await fireEvent.press(boton('Reintentar'));
+
+    await waitFor(() => expect(screen.queryByText(TEXTO.errorCarga)).toBeNull());
+    expect(proyeccionPedida()).toHaveBeenCalledTimes(2);
   });
 });

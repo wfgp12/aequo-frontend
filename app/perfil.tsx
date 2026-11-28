@@ -4,6 +4,7 @@ import { Text } from '@/components/ui/text';
 import { ApiError, NetworkError } from '@/lib/api/client';
 import type { Usuario } from '@/lib/api/auth';
 import { eliminarCuenta, obtenerPerfil } from '@/lib/api/usuarios';
+import { mensajeDelServidor } from '@/lib/errores';
 import { useSession } from '@/lib/session';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -89,7 +90,10 @@ export default function Perfil() {
     } catch (e) {
       // Un 401 ya cerró la sesión y la app vuelve al login; aquí solo se explican los demás fallos
       if (e instanceof ApiError && e.status === 401) return;
-      setErrorAlEliminar('No pudimos eliminar tu cuenta. Inténtalo de nuevo en unos minutos.');
+      setErrorAlEliminar(
+        mensajeDelServidor(e) ??
+          'No pudimos eliminar tu cuenta. Inténtalo de nuevo en unos minutos.',
+      );
       eliminacionEnCurso.current = false;
       setEliminando(false);
     }
