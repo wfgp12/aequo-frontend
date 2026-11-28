@@ -16,6 +16,13 @@ import {
   VISA_ID,
 } from './ayudas/datos-tarjetas';
 import {
+  conCodigo,
+  desconocido,
+  errorHttp,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
+import {
   boton,
   gestoAtras,
   pendiente,
@@ -241,5 +248,58 @@ describe('Eliminar un cargo fijo: accesibilidad y lenguaje (RNF-04, RNF-06)', ()
     const texto = textoDePantalla();
     expect(texto).not.toMatch(TECNICO);
     expect(texto).not.toMatch(/recurrente/i);
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Eliminar un cargo fijo: códigos de error', () => {
+  it.each(['CARGO_NO_ENCONTRADO', 'TARJETA_NO_ENCONTRADA'])(
+    'CA-RNF04-11 con %s el diálogo se cierra sin aviso y la lista ya no lo muestra',
+    async (code) => {
+      await abrirDialogo();
+      eliminar.mockImplementationOnce(async () => {
+        servidor.items = servidor.items.filter((c) => c.id !== NETFLIX.id);
+        throw conCodigo(404, code);
+      });
+
+      await fireEvent.press(boton('Eliminar'));
+
+      await sinDialogo();
+      await sinHoja();
+      await waitFor(() => expect(hayNetflix()).toBe(false));
+      expect(screen.queryByRole('alert')).toBeNull();
+    },
+  );
+
+  it('CA-RNF04-15 una dirección que no existe no da el cargo por eliminado', async () => {
+    await abrirDialogo();
+    eliminar.mockRejectedValueOnce(rutaNoEncontrada());
+
+    await fireEvent.press(boton('Eliminar'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.errorEliminar);
+    expect(dialogoAbierto()).toBe(true);
+    expect(hayNetflix()).toBe(true);
+  });
+
+  it('CA-RNF04-17 con ERROR_HTTP muestra el texto general y el cargo sigue', async () => {
+    await abrirDialogo();
+    eliminar.mockRejectedValueOnce(errorHttp());
+
+    await fireEvent.press(boton('Eliminar'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.errorEliminar);
+    expect(hayNetflix()).toBe(true);
+  });
+
+  it('CA-RNF04-18 con un caso sin texto propio muestra el message y el action y el cargo sigue', async () => {
+    await abrirDialogo();
+    eliminar.mockRejectedValueOnce(desconocido());
+
+    await fireEvent.press(boton('Eliminar'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(MENSAJE_Y_ACCION);
+    expect(dialogoAbierto()).toBe(true);
+    expect(hayNetflix()).toBe(true);
   });
 });

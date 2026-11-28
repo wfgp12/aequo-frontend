@@ -2,6 +2,7 @@ import Perfil from '@/app/perfil';
 import { ApiError } from '@/lib/api/client';
 import { eliminarCuenta, obtenerPerfil } from '@/lib/api/usuarios';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { conCodigo, desconocido, errorHttp, MENSAJE_Y_ACCION } from './ayudas/errores';
 
 const mockCerrarSesion = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: jest.fn() }) }));
@@ -94,5 +95,39 @@ describe('Perfil: eliminar la cuenta', () => {
     await confirmar();
 
     expect(screen.queryByText(/No pudimos eliminar tu cuenta\./)).toBeNull();
+  });
+
+  // criterios/08-codigos-de-error.md
+  it('CA-RNF04-17 con ERROR_INTERNO muestra el texto general, sin el message ni el action', async () => {
+    jest
+      .mocked(eliminarCuenta)
+      .mockRejectedValue(conCodigo(500, 'ERROR_INTERNO', 'Internal server error', 'Reintenta'));
+    await abrirDialogo();
+
+    await confirmar();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/No pudimos eliminar tu cuenta\./);
+    expect(screen.queryByText(/Internal server error|Reintenta/)).toBeNull();
+  });
+
+  it('CA-RNF04-17 con ERROR_HTTP muestra el texto general, sin el message', async () => {
+    jest.mocked(eliminarCuenta).mockRejectedValue(errorHttp());
+    await abrirDialogo();
+
+    await confirmar();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/No pudimos eliminar tu cuenta\./);
+    expect(screen.queryByText(/Throttler/)).toBeNull();
+  });
+
+  it('CA-RNF04-18 con un caso sin texto propio muestra el message y el action y NO cierra la sesión', async () => {
+    jest.mocked(eliminarCuenta).mockRejectedValue(desconocido());
+    await abrirDialogo();
+
+    await confirmar();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(MENSAJE_Y_ACCION);
+    expect(screen.getByText('¿Eliminar tu cuenta?')).toBeOnTheScreen();
+    expect(mockCerrarSesion).not.toHaveBeenCalled();
   });
 });

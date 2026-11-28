@@ -4,6 +4,7 @@ import Login from '@/app/login';
 import Perfil from '@/app/perfil';
 import Registrar from '@/app/registrar';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { CODIGOS_Y_TECNICISMOS } from './ayudas/errores';
 
 // Clave de idempotencia del registro (criterios/02-registro-idempotencia.md) con el router, la sesión y los
 // Adapters reales. Se simulan solo los bordes del sistema: Firebase/Google, el backend (fetch) y el almacenamiento.
@@ -280,5 +281,162 @@ describe('Registro: clave de idempotencia (integración)', () => {
     expect(claveDe(0)).toMatch(UUID);
     expect(claveDe(1)).toMatch(UUID);
     expect(claveDe(1)).not.toBe(claveDe(0));
+  });
+
+  // criterios/08-codigos-de-error.md: lo que manda el backend pasa por el adaptador real hasta la pantalla
+  describe('códigos de error', () => {
+    const RED = 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.';
+    const PROCESANDO =
+      'Tu movimiento todavía se está guardando. Espera unos segundos e inténtalo de nuevo.';
+    const GENERAL = 'No pudimos guardar tu movimiento. Revisa los datos e inténtalo de nuevo.';
+    const cuerpoDeError = (status: number, code?: string, action?: string) =>
+      respuesta(status, {
+        statusCode: status,
+        error: 'x',
+        message: 'mensaje del servidor',
+        ...(code ? { code } : {}),
+        ...(action ? { action } : {}),
+      });
+    /** La página que devuelve el hosting mientras el servidor arranca o está caído. */
+    const paginaDelHosting = (status: number) => ({
+      ok: false,
+      status,
+      statusText: 'Service Unavailable',
+      json: async () => {
+        throw new SyntaxError('Unexpected token < in JSON');
+      },
+    });
+
+    async function fallarElPrimero(primera: unknown) {
+      backend((intento) => (intento === 1 ? (primera as never) : respuesta(201, {})));
+      await llegarAlResumen();
+      await fireEvent.press(screen.getByText('Guardar'));
+      return screen.findByRole('alert');
+    }
+
+    async function reintentar() {
+      await fireEvent.press(screen.getByText('Guardar'));
+      await screen.findByText('¡Listo!');
+      expect(creaciones()).toHaveLength(2);
+    }
+
+    it.each([502, 503])(
+      'CA-RNF04-02 un %s que no es JSON al guardar se ve como sin conexión y reintenta con la misma clave',
+      async (status) => {
+        const alerta = await fallarElPrimero(paginaDelHosting(status));
+
+        expect(alerta).toHaveTextContent(RED);
+        expect(screen.getByText('5 de 5')).toBeOnTheScreen();
+        await reintentar();
+        expect(claveDe(1)).toBe(claveDe(0));
+        expect(cuerpoDe(1)).toEqual(cuerpoDe(0));
+      },
+    );
+
+    it('CA-RNF04-02 un 503 que no es JSON al cargar el perfil se ve como sin conexión y deja reintentar', async () => {
+      fetchMock.mockResolvedValueOnce(paginaDelHosting(503));
+      fetchMock.mockResolvedValue(respuesta(200, usuario));
+      mockAlmacen.set(
+        'sesion',
+        JSON.stringify({ accessToken: 'jwt-guardado', usuario, expiraEn: Date.now() + 60_000 }),
+      );
+      await renderRouter(rutas, { initialUrl: '/perfil' });
+
+      expect(await screen.findByText(RED)).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByText('Reintentar'));
+
+      expect(await screen.findByText('ana@correo.com')).toBeOnTheScreen();
+    });
+
+    it.each([
+      [409, PROCESANDO],
+      [422, GENERAL],
+    ])(
+      'CA-RNF04-04 y CA-RNF04-08 un %s sin code (backend de hoy) se comporta como antes, con la misma clave',
+      async (status, texto) => {
+        const alerta = await fallarElPrimero(cuerpoDeError(status));
+
+        expect(alerta).toHaveTextContent(texto);
+        await reintentar();
+        expect(claveDe(1)).toBe(claveDe(0));
+      },
+    );
+
+    it('CA-RNF04-07 con IDEMPOTENCIA_EN_PROCESO pide esperar y reintenta con la misma clave', async () => {
+      const alerta = await fallarElPrimero(
+        cuerpoDeError(409, 'IDEMPOTENCIA_EN_PROCESO', 'Espera un momento antes de reintentar'),
+      );
+
+      expect(alerta).toHaveTextContent(PROCESANDO);
+      await reintentar();
+      expect(claveDe(1)).toBe(claveDe(0));
+    });
+
+    it('CA-RNF04-22 si la categoría elegida ya no existe pide volver atrás y elegir otra, con el resumen intacto', async () => {
+      const alerta = await fallarElPrimero(
+        cuerpoDeError(404, 'CATEGORIA_NO_ENCONTRADA', 'acción del servidor'),
+      );
+
+      expect(alerta).toHaveTextContent('Esta categoría ya no existe. Vuelve atrás y elige otra.');
+      expect(screen.queryByText(/del servidor/)).toBeNull();
+      expect(alerta).not.toHaveTextContent(CODIGOS_Y_TECNICISMOS);
+      expect(screen.getByText('5 de 5')).toBeOnTheScreen();
+      expect(screen.getByText('Resumen')).toBeOnTheScreen();
+    });
+
+    it('CA-RNF04-08 con IDEMPOTENCIA_CLAVE_REUTILIZADA muestra el texto general y reintenta con otra clave', async () => {
+      const alerta = await fallarElPrimero(cuerpoDeError(422, 'IDEMPOTENCIA_CLAVE_REUTILIZADA'));
+
+      expect(alerta).toHaveTextContent(GENERAL);
+      expect(screen.getByText('5 de 5')).toBeOnTheScreen();
+      await reintentar();
+      expect(claveDe(1)).toMatch(UUID);
+      expect(claveDe(1)).not.toBe(claveDe(0));
+      expect(cuerpoDe(1)).toEqual(cuerpoDe(0));
+    });
+
+    it.each([
+      ['CA-RNF04-16', 400, 'VALIDACION'],
+      ['CA-RNF04-17', 429, 'ERROR_HTTP'],
+      ['CA-RNF04-17', 500, 'ERROR_INTERNO'],
+    ])(
+      '%s un %s %s muestra el texto general, sin lo que manda el servidor, y reintenta con la misma clave',
+      async (_id, status, code) => {
+        const alerta = await fallarElPrimero(cuerpoDeError(status, code, 'acción del servidor'));
+
+        expect(alerta).toHaveTextContent(GENERAL);
+        expect(screen.queryByText(/del servidor/)).toBeNull();
+        expect(alerta).not.toHaveTextContent(CODIGOS_Y_TECNICISMOS);
+        await reintentar();
+        expect(claveDe(1)).toBe(claveDe(0));
+      },
+    );
+
+    it('CA-RNF04-18 con un code que la pantalla no conoce muestra el message y el action que llegan del backend', async () => {
+      const alerta = await fallarElPrimero(cuerpoDeError(409, 'ALGO_NUEVO', 'Haz esto primero'));
+
+      expect(alerta).toHaveTextContent(/^mensaje del servidor\s*Haz esto primero$/);
+      expect(screen.getByText('5 de 5')).toBeOnTheScreen();
+    });
+
+    it.each([
+      ['con SESION_INVALIDA', 'SESION_INVALIDA'],
+      ['sin code', undefined],
+      ['con un code desconocido', 'ALGO_NUEVO'],
+    ])(
+      'CA-RNF04-05 un 401 %s cierra la sesión y vuelve al inicio de sesión, sin aviso de la pantalla',
+      async (_caso, code) => {
+        backend(() => cuerpoDeError(401, code, 'Vuelve a iniciar sesión'));
+        await llegarAlResumen();
+
+        await fireEvent.press(screen.getByText('Guardar'));
+
+        expect(await screen.findByText('Continuar con Google')).toBeOnTheScreen();
+        expect(mockAlmacen.has('sesion')).toBe(false);
+        expect(screen.queryByRole('alert')).toBeNull();
+        expect(screen.queryByText(/del servidor/)).toBeNull();
+      },
+    );
   });
 });

@@ -13,6 +13,14 @@ import {
 } from '@/lib/api/ahorro';
 import { ApiError, NetworkError } from '@/lib/api/client';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import {
+  CON_TEXTO_GENERAL,
+  conCodigo,
+  desconocido,
+  errorHttp,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
 import { boton, laHoja, pendiente, RED, textosEnOrden, VER_TODO } from './ayudas/tarjetas';
 
 // Anotar el ahorro real y ver el acumulado en "Meta de ahorro" (criterios/04-ahorro-real.md, CA-RF23-F01 a F31).
@@ -988,6 +996,68 @@ describe('Ahorro anotado: accesibilidad y lenguaje (RNF-04, RNF-06)', () => {
       }
 
       sinTecnicismos();
+    },
+  );
+});
+
+// criterios/08-codigos-de-error.md
+describe('Ahorro anotado: códigos de error', () => {
+  async function fallarAlAnotar(fallo: Error) {
+    await mostrarHoja();
+    await escribir('320000');
+    guardar.mockRejectedValueOnce(fallo);
+    await tocarGuardar();
+  }
+  async function fallarAlBorrar(fallo: Error) {
+    await mostrarDialogo();
+    guardar.mockRejectedValueOnce(fallo);
+    await fireEvent.press(enLaHoja('Eliminar'));
+  }
+
+  it('CA-RNF04-11 con META_NO_ENCONTRADA al anotar dice que el mes ya no tiene meta', async () => {
+    await fallarAlAnotar(conCodigo(404, 'META_NO_ENCONTRADA'));
+
+    await alertaEncima(TEXTO.sinMeta);
+  });
+
+  it('CA-RNF04-15 una dirección que no existe al anotar muestra el texto general', async () => {
+    await fallarAlAnotar(rutaNoEncontrada());
+
+    await alertaEncima(TEXTO.errorGuardar);
+    expect(hayTexto(TEXTO.sinMeta)).toBe(false);
+  });
+
+  it('CA-RNF04-15 una dirección que no existe al borrar no lo da por borrado', async () => {
+    await fallarAlBorrar(rutaNoEncontrada());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(TEXTO.errorBorrar);
+    expect(dialogoAbierto()).toBe(true);
+  });
+
+  it.each(CON_TEXTO_GENERAL)(
+    '%s con %s al anotar muestra el texto general, sin lo que manda el servidor',
+    async (_id, _code, fallo) => {
+      await fallarAlAnotar(fallo);
+
+      await alertaEncima(TEXTO.errorGuardar);
+    },
+  );
+
+  it('CA-RNF04-17 con ERROR_HTTP al borrar lo anotado muestra el texto general', async () => {
+    await fallarAlBorrar(errorHttp());
+
+    await alertaEncima(TEXTO.errorBorrar);
+  });
+
+  it.each([
+    ['anotar', fallarAlAnotar],
+    ['borrar lo anotado', fallarAlBorrar],
+  ])(
+    'CA-RNF04-18 con un caso sin texto propio al %s muestra el message y el action',
+    async (_accion, fallar) => {
+      await fallar(desconocido());
+
+      await waitFor(() => expect(laHoja().getByRole('alert')).toHaveTextContent(MENSAJE_Y_ACCION));
     },
   );
 });

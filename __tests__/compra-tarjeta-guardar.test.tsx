@@ -32,6 +32,14 @@ import {
   VISA_ID,
   VISA_T,
 } from './ayudas/compra-tarjeta';
+import {
+  CODIGOS_Y_TECNICISMOS,
+  CON_TEXTO_GENERAL,
+  conCodigo,
+  desconocido,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
 import { boton, pendiente, RED, UUID } from './ayudas/tarjetas';
 
 // Guardar una compra con tarjeta desde el resumen (criterios/05-compra-con-tarjeta.md, CA-RF26-F16 a F25 y la parte de
@@ -317,20 +325,18 @@ describe('Guardar la compra: el resultado', () => {
     expect(clave(1)).toBe(clave(0));
   });
 
-  it.each([
-    ['"Tarjeta no encontrada"', 'Tarjeta no encontrada', TEXTO.tarjetaYaNoExiste],
-    ['"Categoría no encontrada"', 'Categoría no encontrada', TEXTO.categoriaYaNoExiste],
-    ['otro mensaje', 'Not Found', TEXTO.errorCompra],
-  ])(
-    'CA-RF26-F23 con un 404 %s ve el aviso que corresponde y el resumen sigue con lo elegido',
-    async (_caso, mensajeDelBackend, esperado) => {
+  // Reemplaza a CA-RF26-F23 (paquete 8.3.9, decisión D2): el texto de `message` ya no decide nada
+  it.each(['Tarjeta no encontrada', 'Categoría no encontrada', 'Not Found'])(
+    'CA-RNF04-13 con un 404 sin code y el mensaje "%s" ve el aviso que cubre los dos casos y el resumen sigue con lo elegido',
+    async (mensajeDelBackend) => {
       comprar.mockRejectedValueOnce(new ApiError(404, mensajeDelBackend));
       await llegarAlResumen();
 
       await fireEvent.press(guardar());
 
-      expect(await screen.findByText(esperado)).toBeOnTheScreen();
-      expect(screen.getByRole('alert')).toHaveTextContent(esperado);
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'La tarjeta o la categoría que elegiste ya no existe. Vuelve atrás y elige otra.',
+      );
       expect(plano()).not.toContain(mensajeDelBackend);
       expect(plano()).toContain('Tarjeta Visa Bancolombia');
       expect(plano()).toContain('Categoría Alimentación');
@@ -506,5 +512,88 @@ describe('Guardar la compra: la clave de idempotencia', () => {
     expect(clave(0)).toMatch(UUID);
     expect(clave(1)).toMatch(UUID);
     expect(clave(1)).not.toBe(clave(0));
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Guardar la compra: códigos de error', () => {
+  /** Falla el primer guardado con `fallo`, espera el aviso y lo devuelve. */
+  async function fallar(fallo: Error) {
+    comprar.mockRejectedValueOnce(fallo);
+    await llegarAlResumen();
+    await fireEvent.press(guardar());
+    return screen.findByRole('alert');
+  }
+
+  async function reintentar() {
+    await fireEvent.press(guardar());
+    await screen.findByText('¡Listo!');
+    expect(comprar).toHaveBeenCalledTimes(2);
+  }
+
+  it('CA-RNF04-07 si todavía se está guardando pide esperar y reintenta con la misma clave', async () => {
+    const alerta = await fallar(conCodigo(409, 'IDEMPOTENCIA_EN_PROCESO'));
+
+    expect(alerta).toHaveTextContent(TEXTO.procesandoCompra);
+    await reintentar();
+    expect(clave(1)).toBe(clave(0));
+  });
+
+  it('CA-RNF04-08 si la clave ya se usó muestra el texto general y el siguiente intento lleva otra clave', async () => {
+    const alerta = await fallar(conCodigo(422, 'IDEMPOTENCIA_CLAVE_REUTILIZADA'));
+
+    expect(alerta).toHaveTextContent(TEXTO.errorCompra);
+    expect(plano()).not.toMatch(CODIGOS_Y_TECNICISMOS);
+    await reintentar();
+    expect(clave(1)).toMatch(UUID);
+    expect(clave(1)).not.toBe(clave(0));
+    expect(cuerpo(1)).toEqual(cuerpo(0));
+  });
+
+  it.each([
+    ['TARJETA_NO_ENCONTRADA', 'Categoría no encontrada', TEXTO.tarjetaYaNoExiste],
+    ['TARJETA_NO_ENCONTRADA', 'otro texto', TEXTO.tarjetaYaNoExiste],
+    ['CATEGORIA_NO_ENCONTRADA', 'Tarjeta no encontrada', TEXTO.categoriaYaNoExiste],
+    ['CATEGORIA_NO_ENCONTRADA', 'otro texto', TEXTO.categoriaYaNoExiste],
+  ])(
+    'CA-RNF04-12 y CA-RNF04-03 con %s (mensaje "%s") dice qué ya no existe según el code, con el resumen intacto',
+    async (code, mensaje, esperado) => {
+      const alerta = await fallar(conCodigo(404, code, mensaje));
+
+      expect(alerta).toHaveTextContent(esperado);
+      expect(plano()).not.toContain(mensaje);
+      expect(plano()).not.toMatch(CODIGOS_Y_TECNICISMOS);
+      expect(screen.getByText('5 de 5')).toBeOnTheScreen();
+    },
+  );
+
+  it('CA-RNF04-15 una dirección que no existe muestra el texto general, no que algo ya no existe', async () => {
+    const alerta = await fallar(rutaNoEncontrada());
+
+    expect(alerta).toHaveTextContent(TEXTO.errorCompra);
+    expect(plano()).not.toContain('ya no existe');
+    await reintentar();
+    expect(clave(1)).toBe(clave(0));
+  });
+
+  it.each(CON_TEXTO_GENERAL)(
+    '%s con %s muestra el texto general, sin lo que manda el servidor, y reintenta con la misma clave',
+    async (_id, _code, fallo) => {
+      const alerta = await fallar(fallo);
+
+      expect(alerta).toHaveTextContent(TEXTO.errorCompra);
+      expect(plano()).not.toContain(fallo.message);
+      expect(plano()).not.toMatch(CODIGOS_Y_TECNICISMOS);
+      await reintentar();
+      expect(clave(1)).toBe(clave(0));
+    },
+  );
+
+  it('CA-RNF04-18 con un caso sin texto propio muestra el message y debajo el action, y deja reintentar', async () => {
+    const alerta = await fallar(desconocido());
+
+    expect(alerta).toHaveTextContent(MENSAJE_Y_ACCION);
+    expect(screen.getByText('5 de 5')).toBeOnTheScreen();
+    await reintentar();
   });
 });

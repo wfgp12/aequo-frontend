@@ -16,6 +16,13 @@ import {
   VISA_ID,
 } from './ayudas/datos-tarjetas';
 import {
+  CON_TEXTO_GENERAL,
+  conCodigo,
+  desconocido,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
+import {
   alternar,
   boton,
   interruptor,
@@ -616,5 +623,98 @@ describe('Errores al guardar un cargo', () => {
     expect(await screen.findByText('Guardar cargo fijo')).toBeOnTheScreen();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByText(TEXTO.errorGuardar)).toBeNull();
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Guardar un cargo: códigos de error', () => {
+  async function fallarAlCrear(fallo: Error) {
+    await nuevoLleno();
+    crear.mockRejectedValueOnce(fallo);
+    await fireEvent.press(guardar());
+    return screen.findByRole('alert');
+  }
+  async function fallarAlEditar(fallo: Error) {
+    await abrirEdicion();
+    actualizar.mockRejectedValueOnce(fallo);
+    await escribirValor('49900');
+    await fireEvent.press(guardar());
+    return screen.findByRole('alert');
+  }
+  async function reintentar() {
+    await fireEvent.press(guardar());
+    await waitFor(() => expect(crear).toHaveBeenCalledTimes(2));
+  }
+
+  it('CA-RNF04-07 si todavía se está guardando pide esperar y reintenta con la misma clave', async () => {
+    const alerta = await fallarAlCrear(conCodigo(409, 'IDEMPOTENCIA_EN_PROCESO'));
+
+    expect(alerta).toHaveTextContent(
+      'Tu cargo fijo todavía se está guardando. Espera unos segundos e inténtalo de nuevo.',
+    );
+    expect(campoDescripcion()).toHaveDisplayValue('Netflix');
+    await reintentar();
+    expect(crear.mock.calls[1][2]).toBe(crear.mock.calls[0][2]);
+  });
+
+  it('CA-RNF04-08 si la clave ya se usó muestra el texto general y el siguiente intento lleva otra clave', async () => {
+    const alerta = await fallarAlCrear(conCodigo(422, 'IDEMPOTENCIA_CLAVE_REUTILIZADA'));
+
+    expect(alerta).toHaveTextContent(TEXTO.errorGuardar);
+    expect(campoDescripcion()).toHaveDisplayValue('Netflix');
+    await reintentar();
+    expect(crear.mock.calls[1][2]).toMatch(UUID);
+    expect(crear.mock.calls[1][2]).not.toBe(crear.mock.calls[0][2]);
+  });
+
+  it('CA-RNF04-11 con TARJETA_NO_ENCONTRADA al crear dice que la tarjeta ya no existe', async () => {
+    const alerta = await fallarAlCrear(conCodigo(404, 'TARJETA_NO_ENCONTRADA'));
+
+    expect(alerta).toHaveTextContent(TEXTO.tarjetaNoExiste);
+  });
+
+  it('CA-RNF04-11 con CARGO_NO_ENCONTRADO al editar dice que el cargo ya no existe y vuelve a pedir la lista', async () => {
+    const alerta = await fallarAlEditar(conCodigo(404, 'CARGO_NO_ENCONTRADO'));
+
+    expect(alerta).toHaveTextContent(TEXTO.cargoNoExiste);
+    await waitFor(() => expect(listar.mock.calls.length).toBeGreaterThanOrEqual(2));
+  });
+
+  it('CA-RNF04-14 si al editar falta la tarjeta, dice que la tarjeta ya no existe', async () => {
+    const alerta = await fallarAlEditar(conCodigo(404, 'TARJETA_NO_ENCONTRADA'));
+
+    expect(alerta).toHaveTextContent(TEXTO.tarjetaNoExiste);
+    expect(screen.queryByText(TEXTO.cargoNoExiste)).toBeNull();
+  });
+
+  it('CA-RNF04-15 una dirección que no existe al editar muestra el texto general', async () => {
+    const alerta = await fallarAlEditar(rutaNoEncontrada());
+
+    expect(alerta).toHaveTextContent(TEXTO.errorGuardar);
+    expect(campoValor()).toHaveDisplayValue('$ 49.900');
+  });
+
+  it('CA-RNF04-15 una dirección que no existe al crear muestra el texto general', async () => {
+    const alerta = await fallarAlCrear(rutaNoEncontrada());
+
+    expect(alerta).toHaveTextContent(TEXTO.errorGuardar);
+  });
+
+  it.each(CON_TEXTO_GENERAL)(
+    '%s con %s muestra el texto general, sin lo que manda el servidor',
+    async (_id, _code, fallo) => {
+      const alerta = await fallarAlCrear(fallo);
+
+      expect(alerta).toHaveTextContent(TEXTO.errorGuardar);
+      expect(screen.queryByText(fallo.message)).toBeNull();
+    },
+  );
+
+  it('CA-RNF04-18 con un caso sin texto propio muestra el message y el action y conserva lo escrito', async () => {
+    const alerta = await fallarAlCrear(desconocido());
+
+    expect(alerta).toHaveTextContent(MENSAJE_Y_ACCION);
+    expect(campoDescripcion()).toHaveDisplayValue('Netflix');
+    await reintentar();
   });
 });

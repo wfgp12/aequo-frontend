@@ -24,6 +24,13 @@ import {
   TEXTO,
   VISA_ID,
 } from './ayudas/detalle-tarjeta';
+import {
+  conCodigo,
+  desconocido,
+  errorHttp,
+  MENSAJE_Y_ACCION,
+  rutaNoEncontrada,
+} from './ayudas/errores';
 import { eliminarPagoSimulado, registrarPagoSimulado, TEXTO_PAGO } from './ayudas/pago-tarjeta';
 import { reiniciarRouter } from './ayudas/router-simulado';
 import { boton, laHoja, pendiente, RED, VER_TODO } from './ayudas/tarjetas';
@@ -245,5 +252,39 @@ describe('Eliminar un pago: si falla', () => {
     expect(hayAlerta()).toBe(false);
     expect(hayTexto(TEXTO_PAGO.errorEliminar)).toBe(false);
     expect(hayTexto(RED)).toBe(false);
+  });
+});
+
+// criterios/08-codigos-de-error.md
+describe('Eliminar un pago: códigos de error', () => {
+  it('CA-RNF04-11 con PAGO_NO_ENCONTRADO se da por eliminado, sin aviso', async () => {
+    const servidor = await conPagos();
+    eliminar().mockImplementation(async () => {
+      servidor.items = servidor.items.filter((p) => p.id !== 'pago-3');
+      throw conCodigo(404, 'PAGO_NO_ENCONTRADO');
+    });
+    await abrirDialogo();
+
+    await fireEvent.press(boton('Eliminar'));
+
+    await waitFor(() => expect(dialogoAbierto()).toBe(false));
+    await waitFor(() => expect(hayBoton(ELIMINAR_PAGO_3)).toBe(false));
+    expect(hayAlerta()).toBe(false);
+  });
+
+  it.each([
+    ['CA-RNF04-15', 'una dirección que no existe', rutaNoEncontrada(), TEXTO_PAGO.errorEliminar],
+    ['CA-RNF04-17', 'ERROR_HTTP', errorHttp(), TEXTO_PAGO.errorEliminar],
+    ['CA-RNF04-18', 'un caso sin texto propio', desconocido(), MENSAJE_Y_ACCION],
+  ])('%s con %s avisa dentro del diálogo y el pago sigue', async (_id, _caso, fallo, aviso) => {
+    await conPagos();
+    eliminar().mockRejectedValueOnce(fallo);
+    await abrirDialogo();
+
+    await fireEvent.press(boton('Eliminar'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(aviso);
+    expect(dialogoAbierto()).toBe(true);
+    expect(screen.getByRole('button', { name: ELIMINAR_PAGO_3, ...VER_TODO })).toBeOnTheScreen();
   });
 });

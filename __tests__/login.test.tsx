@@ -1,6 +1,7 @@
 import Login from '@/app/login';
 import { ApiError, NetworkError } from '@/lib/api/client';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { conCodigo } from './ayudas/errores';
 
 const mockIniciarSesion = jest.fn();
 jest.mock('@/lib/session', () => ({ useSession: () => ({ iniciarSesion: mockIniciarSesion }) }));
@@ -44,5 +45,29 @@ describe('Login', () => {
     await render(<Login />);
     await fireEvent.press(screen.getByText('Continuar con Google'));
     expect(await screen.findByText(/No pudimos iniciar tu sesión/)).toBeOnTheScreen();
+  });
+
+  // criterios/08-codigos-de-error.md
+  it('CA-RNF04-06 con TOKEN_GOOGLE_INVALIDO sigue en la pantalla, avisa y deja volver a intentar', async () => {
+    mockIniciarSesion.mockRejectedValue(
+      conCodigo(
+        401,
+        'TOKEN_GOOGLE_INVALIDO',
+        'ID Token inválido',
+        'Intenta iniciar sesión de nuevo',
+      ),
+    );
+    await render(<Login />);
+
+    await fireEvent.press(screen.getByText('Continuar con Google'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No pudimos verificar tu cuenta. Inténtalo de nuevo.',
+    );
+    expect(screen.queryByText(/ID Token|TOKEN_GOOGLE/)).toBeNull();
+
+    await fireEvent.press(screen.getByText('Continuar con Google'));
+
+    expect(mockIniciarSesion).toHaveBeenCalledTimes(2);
   });
 });
